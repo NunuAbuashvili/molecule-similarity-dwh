@@ -1,2 +1,2 @@
 # molecule-similarity-dwh
-ETL pipeline that ingests ChEMBL molecule data, computes Morgan fingerprints, and finds each molecule's top-10 most similar compounds via Tanimoto similarity — orchestrated with Airflow, stored in S3 + Postgres DWH.
+A data engineering pipeline that ingests molecule data from the ChEMBL web service into a PostgreSQL DWH, computes Morgan fingerprints (RDKit), and calculates pairwise Tanimoto similarity scores to find the top-10 most similar molecules for a set of input compounds. Orchestrated with Airflow, intermediate files stored in S3, results served through a dimensional data mart and SQL views.
