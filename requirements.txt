@@ -1,0 +1,19 @@
+# ChEMBL ingestion (REST API)
+requests
+
+# Cheminformatics — fingerprints + Tanimoto
+rdkit
+
+# AWS S3 access
+boto3
+
+# Data processing / parquet
+pandas
+pyarrow
+
+# Postgres
+psycopg2-binary
+
+# Airflow providers (not included in the base image by default)
+apache-airflow-providers-amazon
+apache-airflow-providers-postgres

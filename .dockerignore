@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+*.egg-info/
+
+# Airflow runtime (not needed at build time, only exist after `up`)
+logs/
+airflow.db
+standalone_admin_password.txt
+
+# AWS creds (mounted at runtime, not baked into image)
+.aws/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Tests & docs (not needed inside the image)
+tests/
+README.md
