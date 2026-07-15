@@ -17,12 +17,14 @@ x-airflow-common:
      {"conn_type": "postgres", "login": "${POSTGRES_USER}", "password": "${POSTGRES_PASSWORD}",
      "host": "postgres", "port": 5432, "schema": "mol_sim_dwh"}
     AWS_PROFILE: ${AWS_PROFILE}
+    PYSTOW_HOME: /opt/airflow/pystow_data
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/include:/opt/airflow/include
+    - ${AIRFLOW_PROJ_DIR:-.}/pystow_data:/opt/airflow/pystow_data
     - ~/.aws:/home/airflow/.aws:ro
   user: "${AIRFLOW_UID}:0"
   depends_on:
