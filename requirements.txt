@@ -1,5 +1,5 @@
-# ChEMBL ingestion (REST API)
-requests
+# ChEMBL ingestion — bulk (SQLite dump)
+chembl_downloader==0.5.2
 
 # Cheminformatics — fingerprints + Tanimoto
 rdkit
