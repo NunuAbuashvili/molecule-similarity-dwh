@@ -25,7 +25,6 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/include:/opt/airflow/include
-    - ${AIRFLOW_PROJ_DIR:-.}/pystow_data:/opt/airflow/pystow_data
     - pystow-data:/opt/airflow/pystow_data
   user: "${AIRFLOW_UID}:0"
   depends_on:
@@ -116,7 +115,13 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    command: version
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /opt/airflow/pystow_data
+        chown -R "${AIRFLOW_UID}:0" /opt/airflow/pystow_data
+        exec /entrypoint airflow version
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
@@ -124,6 +129,7 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
+    user: "0:0"
 
   airflow-cli:
     <<: *airflow-common
