@@ -13,6 +13,7 @@ CREATE DATABASE mol_sim_dwh;
 CREATE SCHEMA IF NOT EXISTS bronze;
 CREATE SCHEMA IF NOT EXISTS silver;
 CREATE SCHEMA IF NOT EXISTS gold;
+CREATE SCHEMA IF NOT EXISTS meta;
 
 
 DROP TABLE IF EXISTS bronze.chembl_id_lookup;
@@ -96,4 +97,13 @@ CREATE TABLE bronze.compound_structures (
     canonical_smiles    VARCHAR(4000),
     _ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (molregno)
+);
+
+
+CREATE TABLE IF NOT EXISTS meta.load_log (
+    table_name     TEXT NOT NULL,
+    chembl_version TEXT NOT NULL,
+    loaded_at      TIMESTAMPTZ NOT NULL,
+    row_count      BIGINT NOT NULL,
+    PRIMARY KEY (table_name)
 );
