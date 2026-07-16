@@ -16,16 +16,20 @@ x-airflow-common:
     AIRFLOW_CONN_MOL_SIM_DWH: >-
      {"conn_type": "postgres", "login": "${POSTGRES_USER}", "password": "${POSTGRES_PASSWORD}",
      "host": "postgres", "port": 5432, "schema": "mol_sim_dwh"}
-    AWS_PROFILE: ${AWS_PROFILE}
+    AIRFLOW_CONN_AWS_S3: "aws://?region_name=${AWS_REGION}&profile_name=${AWS_PROFILE}"
     PYSTOW_HOME: /opt/airflow/pystow_data
     PYTHONPATH: /opt/airflow
+    BUCKET_NAME: ${BUCKET_NAME}
+    INPUT_PREFIX: ${INPUT_PREFIX}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/include:/opt/airflow/include
+    - ${AIRFLOW_PROJ_DIR:-.}/pystow_data:/opt/airflow/pystow_data
     - pystow-data:/opt/airflow/pystow_data
+    - ~/.aws:/home/airflow/.aws
   user: "${AIRFLOW_UID}:0"
   depends_on:
     &airflow-common-depends-on
@@ -115,13 +119,7 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    entrypoint: /bin/bash
-    command:
-      - -c
-      - |
-        mkdir -p /opt/airflow/pystow_data
-        chown -R "${AIRFLOW_UID}:0" /opt/airflow/pystow_data
-        exec /entrypoint airflow version
+    command: version
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
@@ -129,7 +127,6 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
-    user: "0:0"
 
   airflow-cli:
     <<: *airflow-common

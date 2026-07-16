@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS bronze.chembl_id_lookup;
 DROP TABLE IF EXISTS bronze.molecule_dictionary;
 DROP TABLE IF EXISTS bronze.compound_properties;
 DROP TABLE IF EXISTS bronze.compound_structures;
+DROP TABLE IF EXISTS bronze.input_molecules;
 
 
 CREATE TABLE bronze.chembl_id_lookup (
@@ -102,8 +103,22 @@ CREATE TABLE bronze.compound_structures (
 
 CREATE TABLE IF NOT EXISTS meta.load_log (
     table_name     TEXT NOT NULL,
-    chembl_version TEXT NOT NULL,
+    version        TEXT NOT NULL,
     loaded_at      TIMESTAMPTZ NOT NULL,
     row_count      BIGINT NOT NULL,
-    PRIMARY KEY (table_name)
+    PRIMARY KEY (table_name, version)
+);
+
+
+CREATE TABLE bronze.input_molecules (
+    id                BIGSERIAL PRIMARY KEY,
+    compound_id       TEXT,
+    compound_name     TEXT,
+    molecular_weight  TEXT,
+    logp              TEXT,
+    ic50_nm           TEXT,
+    assay_date        TEXT,
+    lab_id            TEXT,
+    _source_file      TEXT NOT NULL,
+    _ingested_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
