@@ -2,7 +2,7 @@
 Configuration for building silver.molecule from bronze ChEMBL tables.
 """
 
-from include.chembl_bronze.config import CHEMBL_VERSION
+from include.chembl_bronze.config import CHEMBL_VERSION  # noqa: F401
 
 POSTGRES_CONN_ID = "mol_sim_dwh"
 
