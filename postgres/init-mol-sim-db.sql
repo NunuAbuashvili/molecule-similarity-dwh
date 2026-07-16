@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS bronze.molecule_dictionary;
 DROP TABLE IF EXISTS bronze.compound_properties;
 DROP TABLE IF EXISTS bronze.compound_structures;
 DROP TABLE IF EXISTS bronze.input_molecules;
+DROP TABLE IF EXISTS silver.molecule;
 
 
 CREATE TABLE bronze.chembl_id_lookup (
@@ -121,4 +122,12 @@ CREATE TABLE bronze.input_molecules (
     lab_id            TEXT,
     _source_file      TEXT NOT NULL,
     _ingested_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE TABLE silver.molecule (
+    molregno          BIGINT PRIMARY KEY,
+    chembl_id         TEXT NOT NULL UNIQUE,
+    canonical_smiles  TEXT NOT NULL,
+    _validated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
