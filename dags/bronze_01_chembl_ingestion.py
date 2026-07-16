@@ -79,7 +79,7 @@ def ingest_chembl_table(
 
 
 @dag(
-    dag_id="chembl_bronze_ingestion",
+    dag_id="bronze_01_chembl_ingestion",
     schedule=None,
     start_date=datetime(2026, 7, 1),
     catchup=False,
@@ -87,11 +87,11 @@ def ingest_chembl_table(
     params={"force_reload": False},
     tags=["bronze", "chembl"],
 )
-def chembl_bronze_ingestion():
+def bronze_01_chembl_ingestion():
     sqlite_path = prepare_chembl_sqlite()
     ingest_chembl_table.partial(sqlite_path=sqlite_path).expand(
         table_name=list(TABLE_CONFIGS)
     )
 
 
-chembl_bronze_ingestion()
+bronze_01_chembl_ingestion()

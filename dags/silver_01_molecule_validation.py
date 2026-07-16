@@ -9,7 +9,7 @@ from include.molecule_silver.validation import run_validation
     tags=["silver", "molecule"],
     params={"force_reload": False},
 )
-def molecule_silver_transformation():
+def silver_01_molecule_validation():
 
     @task
     def build_silver_molecule() -> None:
@@ -20,4 +20,4 @@ def molecule_silver_transformation():
     build_silver_molecule()
 
 
-molecule_silver_transformation()
+silver_01_molecule_validation()

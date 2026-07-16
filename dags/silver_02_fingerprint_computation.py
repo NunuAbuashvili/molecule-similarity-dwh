@@ -11,7 +11,7 @@ from include.fingerprint_silver.fingerprints import (
     tags=["silver", "fingerprints"],
     params={"force_reload": False},
 )
-def fingerprint_silver_computation():
+def silver_02_fingerprint_computation():
 
     @task
     def compute_fingerprints() -> None:
@@ -22,4 +22,4 @@ def fingerprint_silver_computation():
     compute_fingerprints()
 
 
-fingerprint_silver_computation()
+silver_02_fingerprint_computation()

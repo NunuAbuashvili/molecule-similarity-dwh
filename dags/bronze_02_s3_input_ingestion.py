@@ -18,7 +18,7 @@ DEST_DIR = "/tmp/s3_input_bronze"
     catchup=False,
     tags=["bronze", "s3"],
 )
-def s3_input_bronze_ingestion():
+def bronze_02_s3_input_ingestion():
 
     @task
     def discover_keys() -> list[str]:
@@ -38,4 +38,4 @@ def s3_input_bronze_ingestion():
     ingest_input_file.expand(key=discover_keys())
 
 
-s3_input_bronze_ingestion()
+bronze_02_s3_input_ingestion()
