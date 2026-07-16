@@ -1,13 +1,9 @@
 """ChEMBL bronze-ingestion logic"""
 import csv
 import io
-import logging
 import sqlite3
 
 from include.chembl_bronze.config import BATCH_SIZE
-
-
-logger = logging.getLogger(__name__)
 
 
 def stream_table_to_postgres(
@@ -57,7 +53,7 @@ def get_last_loaded_version(
     """
     with pg_conn.cursor() as cursor:
         cursor.execute(
-            "SELECT chembl_version FROM meta.load_log WHERE table_name = %s;",
+            "SELECT version FROM meta.load_log WHERE table_name = %s;",
             (table_name,),
         )
         row = cursor.fetchone()
@@ -67,7 +63,7 @@ def get_last_loaded_version(
 def record_load(
     pg_conn,
     table_name: str,
-    chembl_version: str,
+    version: str,
     row_count: int
 ) -> None:
     """Upsert the load metadata row for this table."""
@@ -75,14 +71,13 @@ def record_load(
         cursor.execute(
             """
             INSERT INTO meta.load_log (
-                table_name, chembl_version, loaded_at, row_count
+                table_name, version, loaded_at, row_count
             )
             VALUES (%s, %s, now(), %s)
-            ON CONFLICT (table_name)
-            DO UPDATE SET chembl_version = EXCLUDED.chembl_version,
-                          loaded_at = EXCLUDED.loaded_at,
+            ON CONFLICT (table_name, version)
+            DO UPDATE SET loaded_at = EXCLUDED.loaded_at,
                           row_count = EXCLUDED.row_count;
             """,
-            (table_name, chembl_version, row_count),
+            (table_name, version, row_count),
         )
     pg_conn.commit()
