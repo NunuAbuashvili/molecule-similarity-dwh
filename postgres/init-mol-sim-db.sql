@@ -22,6 +22,7 @@ DROP TABLE IF EXISTS bronze.compound_properties;
 DROP TABLE IF EXISTS bronze.compound_structures;
 DROP TABLE IF EXISTS bronze.input_molecules;
 DROP TABLE IF EXISTS silver.molecule;
+DROP TABLE IF EXISTS silver.input_molecule;
 
 
 CREATE TABLE bronze.chembl_id_lookup (
@@ -127,7 +128,41 @@ CREATE TABLE bronze.input_molecules (
 
 CREATE TABLE silver.molecule (
     molregno          BIGINT PRIMARY KEY,
-    chembl_id         TEXT NOT NULL UNIQUE,
+    chembl_id         VARCHAR(20) NOT NULL UNIQUE,
     canonical_smiles  TEXT NOT NULL,
     _validated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+CREATE TABLE IF NOT EXISTS silver.input_molecule (
+    compound_id         TEXT NOT NULL,
+    compound_name       TEXT NOT NULL,
+    molecular_weight    NUMERIC,
+    logp                NUMERIC,
+    ic50_nm             NUMERIC,
+    assay_date          DATE,
+    lab_id              TEXT,
+    chembl_id           VARCHAR(20),
+    _source_file        TEXT NOT NULL,
+    _validated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE OR REPLACE FUNCTION silver.try_cast_numeric(p_text TEXT)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN p_text::NUMERIC;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION silver.try_cast_date(p_text TEXT)
+RETURNS DATE AS $$
+BEGIN
+    RETURN p_text::DATE;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
