@@ -23,6 +23,7 @@ DROP TABLE IF EXISTS bronze.compound_structures;
 DROP TABLE IF EXISTS bronze.input_molecules;
 DROP TABLE IF EXISTS silver.molecule;
 DROP TABLE IF EXISTS silver.input_molecule;
+DROP TABLE IF EXISTS gold.fact_similarity;
 
 
 CREATE TABLE bronze.chembl_id_lookup (
@@ -134,7 +135,7 @@ CREATE TABLE silver.molecule (
 );
 
 
-CREATE TABLE IF NOT EXISTS silver.input_molecule (
+CREATE TABLE silver.input_molecule (
     compound_id         TEXT NOT NULL,
     compound_name       TEXT NOT NULL,
     molecular_weight    NUMERIC,
@@ -145,6 +146,16 @@ CREATE TABLE IF NOT EXISTS silver.input_molecule (
     chembl_id           VARCHAR(20),
     _source_file        TEXT NOT NULL,
     _validated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE TABLE gold.fact_similarity (
+    source_chembl_id    VARCHAR(20) NOT NULL,
+    target_chembl_id    VARCHAR(20) NOT NULL,
+    tanimoto_score      NUMERIC NOT NULL,
+    rank                INT NOT NULL,
+    has_duplicate_of_last_largest_score BOOLEAN NOT NULL DEFAULT FALSE,
+    _computed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 
