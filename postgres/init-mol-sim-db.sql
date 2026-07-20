@@ -24,6 +24,16 @@ DROP TABLE IF EXISTS bronze.input_molecules;
 DROP TABLE IF EXISTS silver.molecule;
 DROP TABLE IF EXISTS silver.input_molecule;
 DROP TABLE IF EXISTS gold.fact_similarity;
+DROP TABLE IF EXISTS gold.dim_molecule;
+
+
+CREATE TABLE IF NOT EXISTS meta.load_log (
+    table_name     TEXT NOT NULL,
+    version        TEXT NOT NULL,
+    loaded_at      TIMESTAMPTZ NOT NULL,
+    row_count      BIGINT NOT NULL,
+    PRIMARY KEY (table_name, version)
+);
 
 
 CREATE TABLE bronze.chembl_id_lookup (
@@ -104,15 +114,6 @@ CREATE TABLE bronze.compound_structures (
 );
 
 
-CREATE TABLE IF NOT EXISTS meta.load_log (
-    table_name     TEXT NOT NULL,
-    version        TEXT NOT NULL,
-    loaded_at      TIMESTAMPTZ NOT NULL,
-    row_count      BIGINT NOT NULL,
-    PRIMARY KEY (table_name, version)
-);
-
-
 CREATE TABLE bronze.input_molecules (
     id                BIGSERIAL PRIMARY KEY,
     compound_id       TEXT,
@@ -156,6 +157,21 @@ CREATE TABLE gold.fact_similarity (
     rank                INT NOT NULL,
     has_duplicate_of_last_largest_score BOOLEAN NOT NULL DEFAULT FALSE,
     _computed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE TABLE gold.dim_molecule (
+    chembl_id         TEXT PRIMARY KEY,
+    molecule_type     TEXT,
+    mw_freebase       NUMERIC,
+    alogp             NUMERIC,
+    psa               NUMERIC,
+    cx_logp           NUMERIC,
+    molecular_species TEXT,
+    full_mwt          NUMERIC,
+    aromatic_rings    INTEGER,
+    heavy_atoms       INTEGER,
+    _populated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 
