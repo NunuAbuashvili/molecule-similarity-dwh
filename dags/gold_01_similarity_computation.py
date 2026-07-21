@@ -32,7 +32,10 @@ def gold_01_similarity_computation():
 
         return fetch_source_fingerprints(source_ids)
 
-    @task(outlets=[Asset("gold.fact_similarity")], execution_timeout=timedelta(hours=3))
+    @task(
+        outlets=[Asset("gold.fact_similarity")],
+        execution_timeout=timedelta(hours=3)
+    )
     def compute_similarity(source_fingerprints: list[dict]) -> None:
         context = get_current_context()
         force_reload = context["params"]["force_reload"]

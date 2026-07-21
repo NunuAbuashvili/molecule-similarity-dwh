@@ -35,7 +35,8 @@ def stream_table_to_postgres(
             buffer.seek(0)
 
             pg_cursor.copy_expert(
-                f"COPY {target_table} ({col_list}) FROM STDIN WITH (FORMAT csv, NULL '')",
+                f"COPY {target_table} ({col_list}) "
+                f"FROM STDIN WITH (FORMAT csv, NULL '')",
                 buffer,
             )
             total_rows += len(rows)

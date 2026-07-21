@@ -9,8 +9,16 @@ from include.dim_molecule_gold import dimension
 @pytest.fixture(autouse=True)
 def patch_config(monkeypatch):
     monkeypatch.setattr(dimension, "FACT_TABLE", "gold.fact_similarity")
-    monkeypatch.setattr(dimension, "DICTIONARY_TABLE", "bronze.molecule_dictionary")
-    monkeypatch.setattr(dimension, "PROPERTIES_TABLE", "bronze.compound_properties")
+    monkeypatch.setattr(
+        dimension,
+        "DICTIONARY_TABLE",
+        "bronze.molecule_dictionary"
+    )
+    monkeypatch.setattr(
+        dimension,
+        "PROPERTIES_TABLE",
+        "bronze.compound_properties"
+    )
     monkeypatch.setattr(dimension, "TARGET_TABLE", "gold.dim_molecule")
     monkeypatch.setattr(dimension, "CHEMBL_VERSION", "chembl_35")
 
@@ -53,13 +61,15 @@ class TestBuildDimMolecule:
 
         dimension.build_dim_molecule(force_reload=False)
 
-        executed_sql = [call[0][0] for call in cursor.execute.call_args_list]
+        executed_sql = [
+            call[0][0] for call in cursor.execute.call_args_list
+        ]
         assert not any("TRUNCATE" in sql for sql in executed_sql)
         assert not any("count(*)" in sql for sql in executed_sql)
 
     def test_raises_when_fact_table_empty(self, mock_postgres_hook):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
-        cursor.fetchone.side_effect = [None, (0,)]  # never built, fact table empty
+        cursor.fetchone.side_effect = [None, (0,)]
 
         with pytest.raises(ValueError, match="ETL aborted"):
             dimension.build_dim_molecule(force_reload=False)
@@ -78,7 +88,10 @@ class TestBuildDimMolecule:
         executed_sql = [call[0][0] for call in cursor.execute.call_args_list]
         assert any("TRUNCATE" in sql for sql in executed_sql)
 
-        insert_sql = next(sql for sql in executed_sql if "INSERT INTO " + "gold.dim_molecule" in sql)
+        insert_sql = next(
+            sql for sql in executed_sql
+            if "INSERT INTO " + "gold.dim_molecule" in sql
+        )
         assert "UNION" in insert_sql
         assert "LEFT JOIN bronze.molecule_dictionary md" in insert_sql
         assert "LEFT JOIN bronze.compound_properties cp" in insert_sql

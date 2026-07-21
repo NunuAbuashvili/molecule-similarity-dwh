@@ -271,7 +271,8 @@ def compute_and_upload_similarity(
                 last_version = get_last_built_version(cursor)
                 if last_version == CHEMBL_VERSION:
                     logger.info(
-                        "gold.fact_similarity already built from ChEMBL version %s, "
+                        "gold.fact_similarity already built "
+                        "from ChEMBL version %s, "
                         "skipping (force_reload=False)",
                         CHEMBL_VERSION,
                     )
@@ -290,26 +291,42 @@ def compute_and_upload_similarity(
             }
 
             hook = get_s3_hook()
-            keys = hook.list_keys(bucket_name=BUCKET_NAME, prefix=FINGERPRINT_PREFIX) or []
-            parquet_keys = [k for k in keys if k.endswith(".parquet")]
+            keys = hook.list_keys(
+                bucket_name=BUCKET_NAME,
+                prefix=FINGERPRINT_PREFIX
+            ) or []
+            parquet_keys = [
+                k for k in keys if k.endswith(".parquet")
+            ]
 
             logger.info(
-                "Computing similarity for %d sources against %d candidate files",
-                len(sources), len(parquet_keys),
+                "Computing similarity for %d sources "
+                "against %d candidate files",
+                len(sources),
+                len(parquet_keys),
             )
 
             for chunk_number, key in enumerate(parquet_keys, start=1):
                 obj = hook.get_key(key=key, bucket_name=BUCKET_NAME)
                 buffer = io.BytesIO(obj.get()["Body"].read())
-                df = pd.read_parquet(buffer, columns=["chembl_id", "fingerprint_bytes"])
+                df = pd.read_parquet(
+                    buffer,
+                    columns=["chembl_id", "fingerprint_bytes"]
+                )
 
                 candidate_ids = df["chembl_id"].to_numpy()
-                candidate_fps = [bytes_to_bitvect(fp) for fp in df["fingerprint_bytes"]]
+                candidate_fps = [
+                    bytes_to_bitvect(fp) for fp in df["fingerprint_bytes"]
+                ]
 
                 for source_id, source_fp in sources.items():
-                    scores = np.array(DataStructs.BulkTanimotoSimilarity(source_fp, candidate_fps))
+                    scores = np.array(
+                        DataStructs.BulkTanimotoSimilarity(
+                            source_fp, candidate_fps
+                        )
+                    )
 
-                    mask = candidate_ids != source_id  # vectorized self-match exclusion
+                    mask = candidate_ids != source_id
                     accumulators[source_id]["ids"].append(candidate_ids[mask])
                     accumulators[source_id]["scores"].append(scores[mask])
 

@@ -13,11 +13,23 @@ from include.similarity_gold import similarity
 
 @pytest.fixture(autouse=True)
 def patch_config(monkeypatch):
-    monkeypatch.setattr(similarity, "SILVER_INPUT_TABLE", "silver.input_molecule")
+    monkeypatch.setattr(
+        similarity,
+        "SILVER_INPUT_TABLE",
+        "silver.input_molecule"
+    )
     monkeypatch.setattr(similarity, "TARGET_TABLE", "gold.fact_similarity")
     monkeypatch.setattr(similarity, "BUCKET_NAME", "test-bucket")
-    monkeypatch.setattr(similarity, "FINGERPRINT_PREFIX", "final_task/test_test/fingerprints/")
-    monkeypatch.setattr(similarity, "SIMILARITY_OUTPUT_PREFIX", "final_task/test_test/similarity/")
+    monkeypatch.setattr(
+        similarity,
+        "FINGERPRINT_PREFIX",
+        "final_task/test_test/fingerprints/"
+    )
+    monkeypatch.setattr(
+        similarity,
+        "SIMILARITY_OUTPUT_PREFIX",
+        "final_task/test_test/similarity/"
+    )
     monkeypatch.setattr(similarity, "CHEMBL_VERSION", "chembl_35")
 
 
@@ -68,8 +80,17 @@ class TestGetQueryMolecules:
 class TestFetchSourceFingerprints:
     def test_finds_and_base64_encodes_matches(self, mock_s3_hook):
         fp_bytes = _pack_bits([0, 1, 2])
-        df = pd.DataFrame([{"chembl_id": "CHEMBL1", "fingerprint_bytes": fp_bytes}])
-        mock_s3_hook.list_keys.return_value = ["fingerprints_chunk_00001.parquet"]
+        df = pd.DataFrame(
+            [
+                {
+                    "chembl_id": "CHEMBL1",
+                    "fingerprint_bytes": fp_bytes
+                }
+            ]
+        )
+        mock_s3_hook.list_keys.return_value = [
+            "fingerprints_chunk_00001.parquet"
+        ]
         obj = MagicMock()
         obj.get.return_value = {"Body": _parquet_body(df)}
         mock_s3_hook.get_key.return_value = obj
@@ -77,11 +98,16 @@ class TestFetchSourceFingerprints:
         result = similarity.fetch_source_fingerprints({"CHEMBL1"})
 
         assert result == [
-            {"chembl_id": "CHEMBL1", "fingerprint_b64": base64.b64encode(fp_bytes).decode("ascii")}
+            {
+                "chembl_id": "CHEMBL1",
+                "fingerprint_b64": base64.b64encode(fp_bytes).decode("ascii")
+            }
         ]
 
     def test_stops_scanning_once_all_sources_found(self, mock_s3_hook):
-        df = pd.DataFrame([{"chembl_id": "CHEMBL1", "fingerprint_bytes": _pack_bits([0])}])
+        df = pd.DataFrame(
+            [{"chembl_id": "CHEMBL1", "fingerprint_bytes": _pack_bits([0])}]
+        )
         mock_s3_hook.list_keys.return_value = [
             "fingerprints_chunk_00001.parquet",
             "fingerprints_chunk_00002.parquet",
@@ -94,15 +120,30 @@ class TestFetchSourceFingerprints:
 
         mock_s3_hook.get_key.assert_called_once()  # never opened the 2nd file
 
-    def test_warns_but_returns_partial_on_missing_sources(self, mock_s3_hook, caplog):
-        df = pd.DataFrame([{"chembl_id": "CHEMBL1", "fingerprint_bytes": _pack_bits([0])}])
-        mock_s3_hook.list_keys.return_value = ["fingerprints_chunk_00001.parquet"]
+    def test_warns_but_returns_partial_on_missing_sources(
+        self,
+        mock_s3_hook,
+        caplog
+    ):
+        df = pd.DataFrame(
+            [
+                {
+                    "chembl_id": "CHEMBL1",
+                    "fingerprint_bytes": _pack_bits([0])
+                }
+            ]
+        )
+        mock_s3_hook.list_keys.return_value = [
+            "fingerprints_chunk_00001.parquet"
+        ]
         obj = MagicMock()
         obj.get.return_value = {"Body": _parquet_body(df)}
         mock_s3_hook.get_key.return_value = obj
 
         with caplog.at_level("WARNING"):
-            result = similarity.fetch_source_fingerprints({"CHEMBL1", "CHEMBL_MISSING"})
+            result = similarity.fetch_source_fingerprints(
+                {"CHEMBL1", "CHEMBL_MISSING"}
+            )
 
         assert len(result) == 1
         assert "CHEMBL_MISSING" in caplog.text
@@ -151,14 +192,20 @@ class TestSelectTopN:
 
         assert [r["target_chembl_id"] for r in result] == ["A", "B", "C"]
         assert [r["rank"] for r in result] == [1, 2, 3]
-        assert all(not r["has_duplicate_of_last_largest_score"] for r in result)
+        assert all(
+            not r["has_duplicate_of_last_largest_score"]
+            for r in result
+        )
 
     def test_flags_cutoff_tie_that_spills_over(self):
         scores = [("A", 0.9), ("B", 0.8), ("C", 0.7), ("D", 0.7), ("E", 0.6)]
 
         result = similarity.select_top_n(scores, top_n=3)
 
-        flags = {r["target_chembl_id"]: r["has_duplicate_of_last_largest_score"] for r in result}
+        flags = {
+            r["target_chembl_id"]: r["has_duplicate_of_last_largest_score"]
+            for r in result
+        }
         assert flags == {"A": False, "B": False, "C": True}
 
     def test_internal_tie_not_flagged_when_nothing_excluded(self):
@@ -166,14 +213,20 @@ class TestSelectTopN:
 
         result = similarity.select_top_n(scores, top_n=3)
 
-        assert all(not r["has_duplicate_of_last_largest_score"] for r in result)
+        assert all(
+            not r["has_duplicate_of_last_largest_score"]
+            for r in result
+        )
 
     def test_tie_among_top_ranks_not_at_cutoff_is_not_flagged(self):
         scores = [("A", 0.9), ("B", 0.9), ("C", 0.5)]
 
         result = similarity.select_top_n(scores, top_n=2)
 
-        assert all(not r["has_duplicate_of_last_largest_score"] for r in result)
+        assert all(
+            not r["has_duplicate_of_last_largest_score"]
+            for r in result
+        )
 
     def test_fewer_candidates_than_top_n(self):
         result = similarity.select_top_n([("A", 0.5)], top_n=10)
@@ -245,7 +298,11 @@ class TestWriteTopNToGold:
 
 
 class TestComputeAndUploadSimilarity:
-    def test_skips_when_already_built_and_not_forced(self, mock_postgres_hook, mock_s3_hook):
+    def test_skips_when_already_built_and_not_forced(
+        self,
+        mock_postgres_hook,
+        mock_s3_hook
+    ):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = ("chembl_35",)
 
@@ -255,38 +312,63 @@ class TestComputeAndUploadSimilarity:
 
         mock_s3_hook.list_keys.assert_not_called()
 
-    def test_excludes_self_match_and_ranks_candidates_correctly(self, mock_postgres_hook, mock_s3_hook):
+    def test_excludes_self_match_and_ranks_candidates_correctly(
+        self,
+        mock_postgres_hook,
+        mock_s3_hook
+    ):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None  # never built before
 
         src_bytes = _pack_bits([0, 1, 2, 3])
         source_fingerprints = [
-            {"chembl_id": "CHEMBL_SRC", "fingerprint_b64": base64.b64encode(src_bytes).decode("ascii")}
+            {
+                "chembl_id": "CHEMBL_SRC",
+                "fingerprint_b64": base64.b64encode(src_bytes).decode("ascii")
+            }
         ]
 
         candidates_df = pd.DataFrame(
             [
-                {"chembl_id": "CHEMBL_SRC", "fingerprint_bytes": _pack_bits([0, 1, 2, 3])},
-                {"chembl_id": "CHEMBL_A", "fingerprint_bytes": _pack_bits([0, 1, 2, 3])},
-                {"chembl_id": "CHEMBL_B", "fingerprint_bytes": _pack_bits([0, 1])},
+                {
+                    "chembl_id": "CHEMBL_SRC",
+                    "fingerprint_bytes": _pack_bits([0, 1, 2, 3])
+                },
+                {
+                    "chembl_id": "CHEMBL_A",
+                    "fingerprint_bytes": _pack_bits([0, 1, 2, 3])
+                },
+                {
+                    "chembl_id": "CHEMBL_B",
+                    "fingerprint_bytes": _pack_bits([0, 1])
+                },
             ]
         )
-        mock_s3_hook.list_keys.return_value = ["fingerprints_chunk_00001.parquet"]
+        mock_s3_hook.list_keys.return_value = [
+            "fingerprints_chunk_00001.parquet"
+        ]
         obj = MagicMock()
         obj.get.return_value = {"Body": _parquet_body(candidates_df)}
         mock_s3_hook.get_key.return_value = obj
 
-        similarity.compute_and_upload_similarity(source_fingerprints, force_reload=False)
+        similarity.compute_and_upload_similarity(
+            source_fingerprints,
+            force_reload=False
+        )
 
         upload_key = mock_s3_hook.load_bytes.call_args[1]["key"]
-        assert upload_key == "final_task/test_test/similarity/CHEMBL_SRC.parquet"
+        assert (
+            upload_key == "final_task/test_test/similarity/CHEMBL_SRC.parquet"
+        )
 
         insert_calls = [
             call[0][1] for call in cursor.execute.call_args_list
-            if call[0][0].strip().startswith("INSERT " + "INTO gold.fact_similarity")
+            if call[0][0].strip().startswith(
+                "INSERT " + "INTO gold.fact_similarity"
+            )
         ]
         target_ids = [params[1] for params in insert_calls]
-        assert target_ids == ["CHEMBL_A", "CHEMBL_B"]  # CHEMBL_SRC never appears
+        assert target_ids == ["CHEMBL_A", "CHEMBL_B"]
         assert insert_calls[0][2] == pytest.approx(1.0)
         assert insert_calls[1][2] == pytest.approx(0.5)
 
@@ -294,11 +376,17 @@ class TestComputeAndUploadSimilarity:
         assert "INSERT " + "INTO meta.load_log" in sql
         assert params == ("gold.fact_similarity", "chembl_35", 2)
 
-    def test_closes_connection_even_on_failure(self, mock_postgres_hook, mock_s3_hook):
+    def test_closes_connection_even_on_failure(
+        self,
+        mock_postgres_hook,
+        mock_s3_hook
+    ):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = RuntimeError("db exploded")
 
         with pytest.raises(RuntimeError):
-            similarity.compute_and_upload_similarity([{"chembl_id": "X", "fingerprint_b64": "AA=="}])
+            similarity.compute_and_upload_similarity(
+                [{"chembl_id": "X", "fingerprint_b64": "AA=="}]
+            )
 
         mock_postgres_hook.close.assert_called_once()

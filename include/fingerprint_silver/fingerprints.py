@@ -1,5 +1,6 @@
 """
-Compute Morgan fingerprints for validated molecules and upload as Parquet to S3.
+Compute Morgan fingerprints for validated molecules
+and upload as Parquet to S3.
 """
 
 import io
@@ -279,7 +280,6 @@ def run_fingerprint_computation(force_reload: bool = False) -> None:
                     break
 
                 valid_rows, rejected_count = build_fingerprint_batch(rows)
-                s3_key = upload_batch_to_s3(valid_rows, chunk_number)
                 conn.commit()
 
                 total_valid += len(valid_rows)
@@ -287,9 +287,11 @@ def run_fingerprint_computation(force_reload: bool = False) -> None:
                 last_molregno = rows[-1][0]
 
                 logger.info(
-                    "Chunk %s complete: last_molregno=%s, loaded=%s, rejected=%s, "
+                    "Chunk %s complete: last_molregno=%s, "
+                    "loaded=%s, rejected=%s, "
                     "running totals: valid=%s, rejected=%s",
-                    chunk_number, last_molregno, len(valid_rows), rejected_count,
+                    chunk_number, last_molregno,
+                    len(valid_rows), rejected_count,
                     total_valid, total_rejected,
                 )
 
@@ -302,6 +304,7 @@ def run_fingerprint_computation(force_reload: bool = False) -> None:
         conn.close()
 
     logger.info(
-        "Fingerprint calculation run finished: %s chunks, %s valid, %s rejected",
+        "Fingerprint calculation run finished: "
+        "%s chunks, %s valid, %s rejected",
         chunk_number, total_valid, total_rejected,
     )

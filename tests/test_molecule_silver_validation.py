@@ -8,8 +8,16 @@ from include.molecule_silver import validation
 
 @pytest.fixture(autouse=True)
 def patch_config(monkeypatch):
-    monkeypatch.setattr(validation, "STRUCTURES_TABLE", "bronze.compound_structures")
-    monkeypatch.setattr(validation, "DICTIONARY_TABLE", "bronze.molecule_dictionary")
+    monkeypatch.setattr(
+        validation,
+        "STRUCTURES_TABLE",
+        "bronze.compound_structures"
+    )
+    monkeypatch.setattr(
+        validation,
+        "DICTIONARY_TABLE",
+        "bronze.molecule_dictionary"
+    )
     monkeypatch.setattr(validation, "TARGET_TABLE", "silver.molecule")
     monkeypatch.setattr(validation, "CHEMBL_VERSION", "chembl_35")
 
@@ -80,11 +88,18 @@ class TestLoadChunkToSilver:
         cursor = MagicMock()
         rows = [(1, "CHEMBL1", "CCO"), (2, "CHEMBL2", "c1ccccc1")]
 
-        result = validation.load_chunk_to_silver(cursor, rows, target_table="silver.molecule")
+        result = validation.load_chunk_to_silver(
+            cursor,
+            rows,
+            target_table="silver.molecule"
+        )
 
         assert result == 2
         copy_sql, buffer = cursor.copy_expert.call_args[0]
-        assert "COPY silver.molecule (molregno, chembl_id, canonical_smiles)" in copy_sql
+        assert (
+            "COPY silver.molecule "
+            "(molregno, chembl_id, canonical_smiles)" in copy_sql
+        )
         assert "NULL ''" in copy_sql
         assert "1,CHEMBL1,CCO\r\n" in buffer.getvalue()
 
@@ -115,7 +130,7 @@ class TestRecordBuild:
 class TestRunValidation:
     def test_skips_when_already_built_and_not_forced(self, mock_postgres_hook):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
-        cursor.fetchone.return_value = ("chembl_35",)  # matches patched CHEMBL_VERSION
+        cursor.fetchone.return_value = ("chembl_35",)
 
         validation.run_validation(force_reload=False)
 
@@ -123,7 +138,11 @@ class TestRunValidation:
         assert not any("TRUNCATE" in sql for sql in executed_sql)
         cursor.copy_expert.assert_not_called()
 
-    def test_rebuilds_when_forced_even_if_up_to_date(self, mock_postgres_hook, monkeypatch):
+    def test_rebuilds_when_forced_even_if_up_to_date(
+        self,
+        mock_postgres_hook,
+        monkeypatch
+    ):
         monkeypatch.setattr(validation, "CHUNK_SIZE", 2)
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchall.side_effect = [
@@ -136,13 +155,17 @@ class TestRunValidation:
         executed_sql = [call[0][0] for call in cursor.execute.call_args_list]
         assert any("TRUNCATE" in sql for sql in executed_sql)
 
-    def test_processes_multiple_chunks_and_records_total(self, mock_postgres_hook, monkeypatch):
+    def test_processes_multiple_chunks_and_records_total(
+        self,
+        mock_postgres_hook,
+        monkeypatch
+    ):
         monkeypatch.setattr(validation, "CHUNK_SIZE", 2)
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None  # never built before
         cursor.fetchall.side_effect = [
-            [(1, "CHEMBL1", "CCO"), (2, "CHEMBL2", "not_a_real_smiles###")],  # full page
-            [(3, "CHEMBL3", "c1ccccc1")],  # partial page -> stop
+            [(1, "CHEMBL1", "CCO"), (2, "CHEMBL2", "not_a_real_smiles###")],
+            [(3, "CHEMBL3", "c1ccccc1")],
         ]
 
         validation.run_validation(force_reload=False)

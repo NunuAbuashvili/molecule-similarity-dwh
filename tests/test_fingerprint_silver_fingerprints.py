@@ -11,7 +11,11 @@ def patch_config(monkeypatch):
     monkeypatch.setattr(fingerprints, "SOURCE_TABLE", "silver.molecule")
     monkeypatch.setattr(fingerprints, "TARGET_LOG_NAME", "silver.fingerprints")
     monkeypatch.setattr(fingerprints, "BUCKET_NAME", "test-bucket")
-    monkeypatch.setattr(fingerprints, "OUTPUT_PREFIX", "final_task/test_test/fingerprints/")
+    monkeypatch.setattr(
+        fingerprints,
+        "OUTPUT_PREFIX",
+        "final_task/test_test/fingerprints/"
+    )
     monkeypatch.setattr(fingerprints, "CHEMBL_VERSION", "chembl_35")
 
 
@@ -58,7 +62,11 @@ class TestFetchChunk:
         cursor = MagicMock()
         cursor.fetchall.return_value = [(1, "CHEMBL1", "CCO")]
 
-        result = fingerprints.fetch_chunk(cursor, last_molregno=0, chunk_size=50)
+        result = fingerprints.fetch_chunk(
+            cursor,
+            last_molregno=0,
+            chunk_size=50
+        )
 
         assert result == [(1, "CHEMBL1", "CCO")]
         sql, params = cursor.execute.call_args[0]
@@ -78,7 +86,9 @@ class TestBuildFingerprintBatch:
 
         assert failed_count == 1
         assert [r[0] for r in records] == ["CHEMBL1", "CHEMBL3"]
-        assert all(isinstance(r[1], bytes) and len(r[1]) == 256 for r in records)
+        assert all(
+            isinstance(r[1], bytes) and len(r[1]) == 256 for r in records
+        )
 
     def test_empty_input_returns_empty_output(self):
         records, failed_count = fingerprints.build_fingerprint_batch([])
@@ -97,7 +107,10 @@ class TestUploadBatchToS3:
 
         result = fingerprints.upload_batch_to_s3(records, chunk_number=3)
 
-        expected_key = "final_task/test_test/fingerprints/fingerprints_chunk_00003.parquet"
+        expected_key = (
+            "final_task/test_test/fingerprints/"
+            "fingerprints_chunk_00003.parquet"
+        )
         assert result == expected_key
         _, kwargs = mock_s3_hook.load_bytes.call_args
         assert kwargs["bucket_name"] == "test-bucket"
@@ -154,7 +167,11 @@ class TestRecordBuild:
 
 
 class TestRunFingerprintComputation:
-    def test_skips_when_already_built_and_not_forced(self, mock_postgres_hook, mock_s3_hook):
+    def test_skips_when_already_built_and_not_forced(
+        self,
+        mock_postgres_hook,
+        mock_s3_hook
+    ):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = ("chembl_35",)
 
@@ -163,24 +180,33 @@ class TestRunFingerprintComputation:
         mock_s3_hook.list_keys.assert_not_called()
         cursor.fetchall.assert_not_called()
 
-    def test_processes_multiple_chunks_and_uploads(self, mock_postgres_hook, mock_s3_hook, monkeypatch):
+    def test_processes_multiple_chunks_and_uploads(
+        self,
+        mock_postgres_hook,
+        mock_s3_hook,
+        monkeypatch
+    ):
         monkeypatch.setattr(fingerprints, "CHUNK_SIZE", 2)
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
-        cursor.fetchone.return_value = None  # never built before
-        mock_s3_hook.list_keys.return_value = []  # nothing stale to clear
+        cursor.fetchone.return_value = None
+        mock_s3_hook.list_keys.return_value = []
         cursor.fetchall.side_effect = [
-            [(1, "CHEMBL1", "CCO"), (2, "CHEMBL2", "not_a_real_smiles###")],  # full page
-            [(3, "CHEMBL3", "c1ccccc1")],  # partial page -> stop
+            [(1, "CHEMBL1", "CCO"), (2, "CHEMBL2", "not_a_real_smiles###")],
+            [(3, "CHEMBL3", "c1ccccc1")],
         ]
 
         fingerprints.run_fingerprint_computation(force_reload=False)
 
-        assert mock_s3_hook.load_bytes.call_count == 2  # one upload per chunk
+        assert mock_s3_hook.load_bytes.call_count == 2
         sql, params = cursor.execute.call_args_list[-1][0]
         assert "INSERT " + "INTO meta.load_log" in sql
-        assert params == ("silver.fingerprints", "chembl_35", 2)  # 2 valid total
+        assert params == ("silver.fingerprints", "chembl_35", 2)
 
-    def test_closes_connection_even_on_failure(self, mock_postgres_hook, mock_s3_hook):
+    def test_closes_connection_even_on_failure(
+        self,
+        mock_postgres_hook,
+        mock_s3_hook
+    ):
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = RuntimeError("db exploded")
 

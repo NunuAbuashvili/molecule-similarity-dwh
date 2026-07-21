@@ -72,10 +72,17 @@ class TestStreamTableToPostgres:
         )
         cursor = pg_conn.cursor.return_value.__enter__.return_value
         copy_sql = cursor.copy_expert.call_args[0][0]
-        assert "bronze.molecule_dictionary (molregno, chembl_id, pref_name)" in copy_sql
+        assert (
+            "bronze.molecule_dictionary "
+            "(molregno, chembl_id, pref_name)" in copy_sql
+        )
         assert "NULL ''" in copy_sql
 
-    def test_none_values_serialize_to_empty_csv_field(self, sqlite_conn, pg_conn):
+    def test_none_values_serialize_to_empty_csv_field(
+            self,
+            sqlite_conn,
+            pg_conn
+    ):
         stream_table_to_postgres(
             sqlite_conn=sqlite_conn,
             pg_conn=pg_conn,
@@ -126,7 +133,10 @@ class TestGetLastLoadedVersion:
         cursor = pg_conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = ("chembl_35",)
 
-        version = get_last_loaded_version(pg_conn, "bronze.molecule_dictionary")
+        version = get_last_loaded_version(
+            pg_conn,
+            "bronze.molecule_dictionary"
+        )
 
         assert version == "chembl_35"
         cursor.execute.assert_called_once_with(
@@ -138,7 +148,10 @@ class TestGetLastLoadedVersion:
         cursor = pg_conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None
 
-        assert get_last_loaded_version(pg_conn, "bronze.molecule_dictionary") is None
+        assert get_last_loaded_version(
+            pg_conn,
+            "bronze.molecule_dictionary"
+        ) is None
 
 
 class TestRecordLoad:

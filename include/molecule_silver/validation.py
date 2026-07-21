@@ -132,7 +132,8 @@ def load_chunk_to_silver(
 
     col_list = "molregno, chembl_id, canonical_smiles"
     cursor.copy_expert(
-        f"COPY {target_table} ({col_list}) FROM STDIN WITH (FORMAT csv, NULL '')",
+        f"COPY {target_table} ({col_list}) "
+        f"FROM STDIN WITH (FORMAT csv, NULL '')",
         buffer
     )
 
@@ -182,10 +183,12 @@ def record_build(
         INSERT INTO meta.load_log (table_name, version, row_count, loaded_at)
         VALUES (%s, %s, %s, now())
         ON CONFLICT (table_name, version)
-        DO UPDATE SET row_count = EXCLUDED.row_count, loaded_at = EXCLUDED.loaded_at
+        DO UPDATE SET row_count = EXCLUDED.row_count,
+                      loaded_at = EXCLUDED.loaded_at
         """,
         (TARGET_TABLE, version, row_count),
     )
+
 
 def run_validation(force_reload: bool = False) -> None:
     """
@@ -212,7 +215,8 @@ def run_validation(force_reload: bool = False) -> None:
                 last_version = get_last_built_version(cursor)
                 if last_version == CHEMBL_VERSION:
                     logger.info(
-                        "silver.molecule already built from ChEMBL version %s, "
+                        "silver.molecule already built "
+                        "from ChEMBL version %s, "
                         "skipping (force_reload=False)",
                         CHEMBL_VERSION,
                     )
@@ -242,9 +246,11 @@ def run_validation(force_reload: bool = False) -> None:
                 last_molregno = rows[-1][0]
 
                 logger.info(
-                    "Chunk %s complete: last_molregno=%s, loaded=%s, rejected=%s, "
+                    "Chunk %s complete: last_molregno=%s, "
+                    "loaded=%s, rejected=%s, "
                     "running totals: valid=%s, rejected=%s",
-                    chunk_number, last_molregno, loaded, rejected_count,
+                    chunk_number, last_molregno,
+                    loaded, rejected_count,
                     total_valid, total_rejected,
                 )
 

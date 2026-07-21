@@ -17,7 +17,10 @@ from include.notifications.teams import notify_task_failure
 )
 def silver_02_fingerprint_computation():
 
-    @task(outlets=[Asset("silver.fingerprints")], execution_timeout=timedelta(hours=2))
+    @task(
+        outlets=[Asset("silver.fingerprints")],
+        execution_timeout=timedelta(hours=2)
+    )
     def compute_fingerprints() -> None:
         context = get_current_context()
         force_reload = context["params"]["force_reload"]

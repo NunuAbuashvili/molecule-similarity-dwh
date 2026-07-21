@@ -47,7 +47,8 @@ def build_dim_molecule(force_reload: bool = False) -> None:
                 last_version = get_last_built_version(cursor)
                 if last_version == CHEMBL_VERSION:
                     logger.info(
-                        "gold.dim_molecule already built from ChEMBL version %s, "
+                        "gold.dim_molecule already built "
+                        "from ChEMBL version %s, "
                         "skipping (force_reload=False)",
                         CHEMBL_VERSION,
                     )

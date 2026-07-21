@@ -35,7 +35,11 @@ def bronze_02_s3_input_ingestion():
         local_path = None
         try:
             local_path = fetch_csv_from_s3(key=key, dest_dir=DEST_DIR)
-            row_count = load_csv_to_postgres(local_path, TARGET_TABLE, source_key=key)
+            row_count = load_csv_to_postgres(
+                local_path,
+                TARGET_TABLE,
+                source_key=key
+            )
             record_input_load(key, row_count)
         finally:
             if local_path and os.path.exists(local_path):

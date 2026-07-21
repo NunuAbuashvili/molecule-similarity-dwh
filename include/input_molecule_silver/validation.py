@@ -80,8 +80,12 @@ def validate_and_match() -> None:
                 LEFT JOIN name_overrides ov
                     ON lower(trim(im.compound_name)) = lower(ov.compound_name)
                 LEFT JOIN {DICTIONARY_TABLE} md
-                    ON lower(coalesce(ov.override_name, trim(im.compound_name))) = lower(md.pref_name)
-                WHERE im.compound_name IS NOT NULL AND trim(im.compound_name) != ''
+                    ON lower(coalesce(
+                        ov.override_name,
+                        trim(im.compound_name)
+                    )) = lower(md.pref_name)
+                WHERE im.compound_name IS NOT NULL
+                  AND trim(im.compound_name) != ''
                 """,
                 overrides_params,
             )

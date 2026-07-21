@@ -52,7 +52,9 @@ def build_failure_payload(context: dict) -> dict:
             {
                 "contentType": "application/vnd.microsoft.card.adaptive",
                 "content": {
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "$schema": (
+                        "http://adaptivecards.io/schemas/adaptive-card.json"
+                    ),
                     "type": "AdaptiveCard",
                     "version": "1.4",
                     "body": [
@@ -70,11 +72,15 @@ def build_failure_payload(context: dict) -> dict:
                                 {"title": "Task", "value": str(ti.task_id)},
                                 {
                                     "title": "Run ID",
-                                    "value": str(context.get("run_id", "unknown")),
+                                    "value": str(
+                                        context.get("run_id", "unknown")
+                                    ),
                                 },
                                 {
                                     "title": "Error Type",
-                                    "value": type(exception).__name__ if exception else "unknown",
+                                    "value": type(
+                                        exception
+                                    ).__name__ if exception else "unknown",
                                 },
                                 {"title": "Error", "value": str(exception)},
                                 {"title": "File", "value": str(file_name)},

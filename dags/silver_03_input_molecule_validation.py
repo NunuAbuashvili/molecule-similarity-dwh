@@ -14,7 +14,10 @@ from include.notifications.teams import notify_task_failure
 )
 def silver_03_input_molecule_validation():
 
-    @task(outlets=[Asset("silver.input_molecule")], execution_timeout=timedelta(minutes=30))
+    @task(
+        outlets=[Asset("silver.input_molecule")],
+        execution_timeout=timedelta(minutes=30)
+    )
     def build_silver_input_molecule() -> None:
         validate_and_match()
 
