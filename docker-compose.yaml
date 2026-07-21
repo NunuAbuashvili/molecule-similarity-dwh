@@ -33,6 +33,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/pystow_data:/opt/airflow/pystow_data
     - pystow-data:/opt/airflow/pystow_data
     - ~/.aws:/home/airflow/.aws
+    - ./tests:/opt/airflow/tests
   user: "${AIRFLOW_UID}:0"
   depends_on:
     &airflow-common-depends-on
