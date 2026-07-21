@@ -7,6 +7,7 @@ from include.similarity_gold.similarity import (
     fetch_source_fingerprints,
     compute_and_upload_similarity,
 )
+from include.notifications.teams import notify_task_failure
 
 
 @dag(
@@ -14,6 +15,7 @@ from include.similarity_gold.similarity import (
     catchup=False,
     tags=["gold", "similarity"],
     params={"force_reload": False},
+    default_args={"on_failure_callback": notify_task_failure},
 )
 def gold_01_similarity_computation():
 

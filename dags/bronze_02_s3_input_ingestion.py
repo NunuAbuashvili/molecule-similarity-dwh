@@ -9,6 +9,8 @@ from include.s3_input_bronze.ingestion import (
     load_csv_to_postgres,
     record_input_load,
 )
+from include.notifications.teams import notify_task_failure
+
 
 DEST_DIR = "/tmp/s3_input_bronze"
 
@@ -17,6 +19,7 @@ DEST_DIR = "/tmp/s3_input_bronze"
     schedule=None,
     catchup=False,
     tags=["bronze", "s3"],
+    default_args={"on_failure_callback": notify_task_failure},
 )
 def bronze_02_s3_input_ingestion():
 

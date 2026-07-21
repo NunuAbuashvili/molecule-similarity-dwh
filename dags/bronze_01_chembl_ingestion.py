@@ -22,6 +22,7 @@ from include.chembl_bronze.ingestion import (
     record_load,
     stream_table_to_postgres,
 )
+from include.notifications.teams import notify_task_failure
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def ingest_chembl_table(
     schedule=None,
     start_date=datetime(2026, 7, 1),
     catchup=False,
-    default_args={"retries": 2},
+    default_args={"retries": 2, "on_failure_callback": notify_task_failure},
     params={"force_reload": False},
     tags=["bronze", "chembl"],
 )
