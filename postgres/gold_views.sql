@@ -48,25 +48,22 @@ CREATE OR REPLACE VIEW gold.similarity_pivot_10_sources AS
     GROUP BY target_chembl_id;
 
 
--- 4. Ranking chain: for each (source, target) row, the chembl_id of the next
---    most similar target (rank+1) and the one after that (rank+2), relative
---    to the current row's rank within its source. NULL past the last ranks.
+-- 4. Ranking chain: for each source molecule, its most similar (rank 1) and
+--    second most similar (rank 2) target molecule, both anchored to the
+--    source.
 CREATE OR REPLACE VIEW gold.similarity_ranking_chain AS
+    WITH top_two AS (
+        SELECT source_chembl_id, target_chembl_id, rank
+        FROM gold.fact_similarity
+        WHERE rank <= 2
+    )
     SELECT
-        source_chembl_id,
-        target_chembl_id,
-        rank,
-        tanimoto_score AS similarity_score,
-        LEAD(target_chembl_id, 1) OVER (
-            PARTITION BY source_chembl_id
-            ORDER BY rank
-        ) AS next_most_similar_chembl_id,
-        LEAD(target_chembl_id, 2) OVER (
-            PARTITION BY source_chembl_id
-            ORDER BY rank
-        ) AS second_next_most_similar_chembl_id
-    FROM gold.fact_similarity
-    ORDER BY source_chembl_id, rank;
+        t1.source_chembl_id,
+        t1.target_chembl_id AS most_similar_chembl_id,
+        t2.target_chembl_id AS second_most_similar_chembl_id
+    FROM top_two t1
+    JOIN top_two t2 ON t2.source_chembl_id = t1.source_chembl_id AND t2.rank = 2
+    WHERE t1.rank = 1;
 
 
 -- 5. Average similarity score grouped by: (i) source molecule, (ii) source's
