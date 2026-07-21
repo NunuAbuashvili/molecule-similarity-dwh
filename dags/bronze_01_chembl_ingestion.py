@@ -6,11 +6,11 @@ the DAG/task graph.
 """
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import chembl_downloader
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.sdk import dag, task, get_current_context
+from airflow.sdk import dag, task, get_current_context, Asset
 
 from include.chembl_bronze.config import (
     CHEMBL_VERSION,
@@ -27,7 +27,7 @@ from include.notifications.teams import notify_task_failure
 logger = logging.getLogger(__name__)
 
 
-@task
+@task(execution_timeout=timedelta(hours=1))
 def prepare_chembl_sqlite() -> str:
     path_obj = chembl_downloader.download_extract_sqlite(
         version=CHEMBL_VERSION
@@ -35,7 +35,7 @@ def prepare_chembl_sqlite() -> str:
     return str(path_obj)
 
 
-@task
+@task(execution_timeout=timedelta(minutes=30))
 def ingest_chembl_table(
     sqlite_path: str,
     table_name: str
@@ -79,6 +79,14 @@ def ingest_chembl_table(
         pg_conn.close()
 
 
+@task(outlets=[Asset("bronze.chembl_tables")])
+def finalize_chembl_ingestion(row_counts: list[int]) -> None:
+    logger.info(
+        "Bronze ChEMBL ingestion complete for tables %s: %s rows",
+        list(TABLE_CONFIGS), row_counts,
+    )
+
+
 @dag(
     dag_id="bronze_01_chembl_ingestion",
     schedule=None,
@@ -90,9 +98,10 @@ def ingest_chembl_table(
 )
 def bronze_01_chembl_ingestion():
     sqlite_path = prepare_chembl_sqlite()
-    ingest_chembl_table.partial(sqlite_path=sqlite_path).expand(
+    row_counts = ingest_chembl_table.partial(sqlite_path=sqlite_path).expand(
         table_name=list(TABLE_CONFIGS)
     )
+    finalize_chembl_ingestion(row_counts)
 
 
 bronze_01_chembl_ingestion()
