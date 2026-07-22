@@ -1,3 +1,5 @@
+"""Silver DAG: validate bronze ChEMBL structures into silver.molecule."""
+
 from datetime import timedelta
 
 from airflow.sdk import dag, task, get_current_context, Asset

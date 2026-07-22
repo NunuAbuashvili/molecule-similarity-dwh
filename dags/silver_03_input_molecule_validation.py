@@ -1,3 +1,7 @@
+"""
+Silver DAG: match input molecules against ChEMBL into silver.input_molecule.
+"""
+
 from datetime import timedelta
 
 from airflow.sdk import dag, task, Asset

@@ -1,3 +1,8 @@
+"""
+Gold DAG: compute Tanimoto similarity and load top-10 matches
+into gold.fact_similarity.
+"""
+
 from datetime import timedelta
 
 from airflow.sdk import dag, task, get_current_context, Asset

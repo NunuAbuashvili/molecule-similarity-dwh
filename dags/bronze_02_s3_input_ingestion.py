@@ -1,3 +1,7 @@
+"""
+Bronze DAG: ingest input-molecule CSVs from S3 into bronze.input_molecules.
+"""
+
 import logging
 import os
 from datetime import timedelta

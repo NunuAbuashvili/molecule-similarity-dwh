@@ -1,3 +1,5 @@
+"""Silver DAG: compute Morgan fingerprints and upload them as Parquet to S3."""
+
 from datetime import timedelta
 
 from airflow.sdk import dag, task, get_current_context, Asset

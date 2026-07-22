@@ -1,3 +1,5 @@
+"""Gold DAG: build gold.dim_molecule from fact-referenced molecules."""
+
 from datetime import timedelta
 
 from airflow.sdk import dag, task, get_current_context, Asset
