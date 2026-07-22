@@ -96,7 +96,7 @@ class TestValidateAndMatch:
         validation.validate_and_match()
 
         executed_sql = [call[0][0] for call in cursor.execute.call_args_list]
-        assert "TRUNCATE " + "TABLE silver.input_molecule" in executed_sql
+        assert "TRUNCATE TABLE silver.input_molecule" in executed_sql
 
     def test_insert_references_correct_tables_and_overrides_params(
         self,
@@ -118,7 +118,7 @@ class TestValidateAndMatch:
         validation.validate_and_match()
 
         insert_sql, params = cursor.execute.call_args_list[1][0]
-        assert "INSERT " + "INTO silver.input_molecule" in insert_sql
+        assert "INSERT INTO silver.input_molecule" in insert_sql
         assert "FROM bronze.input_molecules im" in insert_sql
         assert "JOIN bronze.molecule_dictionary md" in insert_sql
         assert params == ["paracetamol", "acetaminophen"]

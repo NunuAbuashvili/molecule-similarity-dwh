@@ -49,7 +49,7 @@ class TestRecordBuild:
         dimension.record_build(cursor, "chembl_35", 42)
 
         sql, params = cursor.execute.call_args[0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert "ON CONFLICT (table_name, version)" in sql
         assert params == ("gold.dim_molecule", "chembl_35", 42)
 
@@ -90,14 +90,14 @@ class TestBuildDimMolecule:
 
         insert_sql = next(
             sql for sql in executed_sql
-            if "INSERT INTO " + "gold.dim_molecule" in sql
+            if "INSERT INTO gold.dim_molecule" in sql
         )
         assert "UNION" in insert_sql
         assert "LEFT JOIN bronze.molecule_dictionary md" in insert_sql
         assert "LEFT JOIN bronze.compound_properties cp" in insert_sql
 
         sql, params = cursor.execute.call_args_list[-1][0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert params == ("gold.dim_molecule", "chembl_35", 5)
         mock_postgres_hook.commit.assert_called_once()
 

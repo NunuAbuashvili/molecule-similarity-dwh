@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def build_overrides_clause() -> tuple[str, list[str]]:
     """
-    Build a VALUES clause and matching flat param list from NAME_OVERRIDES.
+    Build a VALUES clause and flat param list from the name-override map.
     """
     if not NAME_OVERRIDES:
         return "(CAST(NULL AS TEXT), CAST(NULL AS TEXT))", []
@@ -31,16 +31,8 @@ def build_overrides_clause() -> tuple[str, list[str]]:
 
 def validate_and_match() -> None:
     """
-    Build silver.input_molecule from bronze.input_molecules.
-
-    Drops rows with missing compound_name. Casts molecular_weight, logp,
-    ic50_nm, and assay_date individually via silver.try_cast_numeric/
-    try_cast_date, nulling out any single field that doesn't parse or fails
-    its validity check (molecular_weight/ic50_nm must be > 0) -- the row
-    itself is kept as long as compound_name is present. Resolves chembl_id
-    via a case-insensitive join against molecule_dictionary.pref_name,
-    falling back through NAME_OVERRIDES for known synonym mismatches. Rows
-    with no match keep chembl_id as NULL rather than being dropped.
+    Build silver.input_molecule from bronze: cast fields safely and
+    resolve chembl_id by name (with overrides).
     """
     overrides_values, overrides_params = build_overrides_clause()
 

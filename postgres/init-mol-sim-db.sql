@@ -155,9 +155,12 @@ CREATE TABLE gold.fact_similarity (
     target_chembl_id    VARCHAR(20) NOT NULL,
     tanimoto_score      NUMERIC NOT NULL,
     rank                INT NOT NULL,
-    has_duplicate_of_last_largest_score BOOLEAN NOT NULL DEFAULT FALSE,
-    _computed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    has_duplicates_of_last_largest_score BOOLEAN NOT NULL DEFAULT FALSE,
+    _computed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (source_chembl_id, target_chembl_id)
 );
+
+CREATE INDEX idx_fact_sim_target ON gold.fact_similarity(target_chembl_id);
 
 
 CREATE TABLE gold.dim_molecule (

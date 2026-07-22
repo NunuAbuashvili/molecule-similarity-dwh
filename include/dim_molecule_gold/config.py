@@ -1,3 +1,5 @@
+"""Configuration for building the gold.dim_molecule dimension table."""
+
 from include.chembl_bronze.config import CHEMBL_VERSION  # noqa: F401
 
 

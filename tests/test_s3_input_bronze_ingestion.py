@@ -216,7 +216,7 @@ class TestLoadCsvToPostgres:
         )
 
         insert_sql, params = cursor.execute.call_args_list[-1][0]
-        assert "INSERT " + "INTO bronze.input_molecules" in insert_sql
+        assert "INSERT INTO bronze.input_molecules" in insert_sql
         assert params == ("batch_01.csv",)
 
     def test_returns_row_count_and_commits(self, tmp_path, mock_postgres_hook):
@@ -255,7 +255,7 @@ class TestRecordInputLoad:
 
         cursor = mock_postgres_hook.cursor.return_value.__enter__.return_value
         sql, params = cursor.execute.call_args[0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert "ON CONFLICT (table_name, version)" in sql
         assert params == (ingestion.TARGET_TABLE, "batch_01.csv", 2)
 

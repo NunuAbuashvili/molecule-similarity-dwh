@@ -186,57 +186,63 @@ class TestBytesToBitvect:
 
 class TestSelectTopN:
     def test_basic_ranking_no_ties(self):
-        scores = [("A", 0.9), ("B", 0.8), ("C", 0.7), ("D", 0.6), ("E", 0.5)]
+        ids = np.array(["A", "B", "C", "D", "E"], dtype=object)
+        scores = np.array([0.9, 0.8, 0.7, 0.6, 0.5], dtype=np.float32)
 
-        result = similarity.select_top_n(scores, top_n=3)
+        result = similarity.select_top_n(ids, scores, top_n=3)
 
         assert [r["target_chembl_id"] for r in result] == ["A", "B", "C"]
         assert [r["rank"] for r in result] == [1, 2, 3]
         assert all(
-            not r["has_duplicate_of_last_largest_score"]
-            for r in result
+            not r["has_duplicates_of_last_largest_score"] for r in result
         )
 
     def test_flags_cutoff_tie_that_spills_over(self):
-        scores = [("A", 0.9), ("B", 0.8), ("C", 0.7), ("D", 0.7), ("E", 0.6)]
+        ids = np.array(["A", "B", "C", "D", "E"], dtype=object)
+        scores = np.array([0.9, 0.8, 0.7, 0.7, 0.6], dtype=np.float32)
 
-        result = similarity.select_top_n(scores, top_n=3)
+        result = similarity.select_top_n(ids, scores, top_n=3)
 
         flags = {
-            r["target_chembl_id"]: r["has_duplicate_of_last_largest_score"]
+            r["target_chembl_id"]: r["has_duplicates_of_last_largest_score"]
             for r in result
         }
         assert flags == {"A": False, "B": False, "C": True}
 
     def test_internal_tie_not_flagged_when_nothing_excluded(self):
-        scores = [("A", 0.9), ("B", 0.8), ("C", 0.8)]
+        ids = np.array(["A", "B", "C"], dtype=object)
+        scores = np.array([0.9, 0.8, 0.8], dtype=np.float32)
 
-        result = similarity.select_top_n(scores, top_n=3)
+        result = similarity.select_top_n(ids, scores, top_n=3)
 
         assert all(
-            not r["has_duplicate_of_last_largest_score"]
-            for r in result
+            not r["has_duplicates_of_last_largest_score"] for r in result
         )
 
     def test_tie_among_top_ranks_not_at_cutoff_is_not_flagged(self):
-        scores = [("A", 0.9), ("B", 0.9), ("C", 0.5)]
+        ids = np.array(["A", "B", "C"], dtype=object)
+        scores = np.array([0.9, 0.9, 0.5], dtype=np.float32)
 
-        result = similarity.select_top_n(scores, top_n=2)
+        result = similarity.select_top_n(ids, scores, top_n=2)
 
         assert all(
-            not r["has_duplicate_of_last_largest_score"]
-            for r in result
+            not r["has_duplicates_of_last_largest_score"] for r in result
         )
 
     def test_fewer_candidates_than_top_n(self):
-        result = similarity.select_top_n([("A", 0.5)], top_n=10)
+        ids = np.array(["A"], dtype=object)
+        scores = np.array([0.5], dtype=np.float32)
+
+        result = similarity.select_top_n(ids, scores, top_n=10)
 
         assert len(result) == 1
         assert result[0]["rank"] == 1
-        assert result[0]["has_duplicate_of_last_largest_score"] is False
+        assert result[0]["has_duplicates_of_last_largest_score"] is False
 
     def test_empty_scores_returns_empty_list(self):
-        assert similarity.select_top_n([], top_n=10) == []
+        ids = np.array([], dtype=object)
+        scores = np.array([], dtype=np.float32)
+        assert similarity.select_top_n(ids, scores, top_n=10) == []
 
 
 class TestGetLastBuiltVersion:
@@ -257,16 +263,19 @@ class TestRecordBuild:
         similarity.record_build(cursor, "chembl_35", 100)
 
         sql, params = cursor.execute.call_args[0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert "ON CONFLICT (table_name, version)" in sql
         assert params == ("gold.fact_similarity", "chembl_35", 100)
 
 
 class TestWriteFullSimilarityTable:
     def test_uploads_expected_key(self, mock_s3_hook):
-        records = [("CHEMBL2", 0.9), ("CHEMBL3", 0.5)]
+        target_ids = np.array(["CHEMBL2", "CHEMBL3"], dtype=object)
+        scores = np.array([0.9, 0.5], dtype=np.float32)
 
-        s3_key = similarity.write_full_similarity_table("CHEMBL1", records)
+        s3_key = similarity.write_full_similarity_table(
+            "CHEMBL1", target_ids, scores
+        )
 
         assert s3_key == "final_task/test_test/similarity/CHEMBL1.parquet"
         _, kwargs = mock_s3_hook.load_bytes.call_args
@@ -280,9 +289,9 @@ class TestWriteTopNToGold:
         cursor = MagicMock()
         top_n_rows = [
             {"target_chembl_id": "CHEMBL2", "tanimoto_score": 0.9, "rank": 1,
-             "has_duplicate_of_last_largest_score": False},
+             "has_duplicates_of_last_largest_score": False},
             {"target_chembl_id": "CHEMBL3", "tanimoto_score": 0.5, "rank": 2,
-             "has_duplicate_of_last_largest_score": False},
+             "has_duplicates_of_last_largest_score": False},
         ]
 
         similarity.write_top_n_to_gold(cursor, "CHEMBL1", top_n_rows)
@@ -364,7 +373,7 @@ class TestComputeAndUploadSimilarity:
         insert_calls = [
             call[0][1] for call in cursor.execute.call_args_list
             if call[0][0].strip().startswith(
-                "INSERT " + "INTO gold.fact_similarity"
+                "INSERT INTO gold.fact_similarity"
             )
         ]
         target_ids = [params[1] for params in insert_calls]
@@ -373,7 +382,7 @@ class TestComputeAndUploadSimilarity:
         assert insert_calls[1][2] == pytest.approx(0.5)
 
         sql, params = cursor.execute.call_args_list[-1][0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert params == ("gold.fact_similarity", "chembl_35", 2)
 
     def test_closes_connection_even_on_failure(

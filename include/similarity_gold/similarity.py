@@ -1,3 +1,8 @@
+"""
+Compute Tanimoto similarity, write full tables to S3,
+and load top-10 into gold.
+"""
+
 import base64
 import io
 import logging
@@ -26,10 +31,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_s3_hook() -> S3Hook:
+    """Return an S3Hook bound to the configured AWS connection."""
     return S3Hook(aws_conn_id=AWS_CONN_ID)
 
 
 def get_query_molecules(cursor) -> set[str]:
+    """
+    Return the distinct matched source chembl_ids
+    from silver.input_molecule; raise if none.
+    """
     cursor.execute(
         f"""
         SELECT DISTINCT chembl_id
@@ -59,9 +69,8 @@ def fetch_source_fingerprints(
     prefix: str = FINGERPRINT_PREFIX
 ) -> list[dict]:
     """
-    Scan the fingerprint Parquet files, and pull out rows matching
-    source_ids. Returns base64-encoded fingerprint bytes for safe
-    transfer through XCom.
+    Scan fingerprint Parquet files for the source ids
+    and return their base64-encoded bytes.
     """
     hook = get_s3_hook()
 
@@ -124,8 +133,7 @@ def bytes_to_bitvect(
     num_bits: int = FINGERPRINT_SIZE
 ) -> DataStructs.ExplicitBitVect:
     """
-    Reconstruct an RDKit ExplicitBitVect from packed bytes (reverse of
-    step 2's np.packbits). Raises on malformed input.
+    Reconstruct an RDKit ExplicitBitVect from packed fingerprint bytes.
     """
     try:
         arr = np.unpackbits(np.frombuffer(fp_bytes, dtype=np.uint8))
@@ -142,42 +150,45 @@ def bytes_to_bitvect(
 
 
 def select_top_n(
-    scores: list[tuple[str, float]],
-    top_n: int = TOP_N
+    target_ids: np.ndarray,
+    scores: np.ndarray,
+    top_n: int = TOP_N,
 ) -> list[dict]:
     """
-    Sort (target_chembl_id, score) pairs descending, take strictly top_n
-    rows. If the smallest score among the top_n rows also appears among
-    candidates ranked below the cutoff (i.e. not all molecules sharing
-    that score made it into the top_n), flag every row within the top_n
-    that shares that score with has_duplicate_of_last_largest_score.
+    Select the top-N targets from aligned id/score arrays via a stable sort,
+    flagging cutoff ties that spilled over.
     """
-    sorted_scores = sorted(scores, key=lambda x: x[1], reverse=True)
-    top = sorted_scores[:top_n]
-    rest = sorted_scores[top_n:]
-
-    if not top:
+    n = scores.shape[0]
+    if n == 0:
         return []
 
-    cutoff_score = top[-1][1]
-    has_excluded_duplicate = any(score == cutoff_score for _, score in rest)
+    k = min(top_n, n)
+    order = np.argsort(-scores, kind="stable")[:k]
+    top_ids = target_ids[order]
+    top_scores = scores[order]
+    cutoff = top_scores[-1]
+
+    total_at_cutoff = int(np.count_nonzero(scores == cutoff))
+    top_at_cutoff = int(np.count_nonzero(top_scores == cutoff))
+    has_excluded_duplicate = total_at_cutoff > top_at_cutoff
 
     return [
         {
-            "target_chembl_id": target_chembl_id,
-            "tanimoto_score": score,
-            "rank": rank,
-            "has_duplicate_of_last_largest_score": (
-                    has_excluded_duplicate and score == cutoff_score
+            "target_chembl_id": str(top_ids[i]),
+            "tanimoto_score": float(top_scores[i]),
+            "rank": i + 1,
+            "has_duplicates_of_last_largest_score": bool(
+                has_excluded_duplicate and top_scores[i] == cutoff
             ),
         }
-        for rank, (target_chembl_id, score) in enumerate(top, start=1)
+        for i in range(k)
     ]
 
 
 def get_last_built_version(cursor) -> str | None:
     """
-    Look up which ChEMBL version gold.fact_similarity was last built from.
+    Return the ChEMBL version gold.fact_similarity
+    was last built from, or None.
     """
     cursor.execute(
         "SELECT version FROM meta.load_log WHERE table_name = %s",
@@ -205,13 +216,16 @@ def record_build(cursor, version: str, row_count: int) -> None:
 
 def write_full_similarity_table(
     chembl_id: str,
-    records: list[tuple[str, float]]
+    target_ids: np.ndarray,
+    scores: np.ndarray,
 ) -> str:
     """
-    Write one source's full (target_chembl_id, tanimoto_score)
-    table to Parquet, upload to S3.
+    Write one source's full target/score arrays to a
+    Parquet file in S3; return the key.
     """
-    df = pd.DataFrame(records, columns=["target_chembl_id", "tanimoto_score"])
+    df = pd.DataFrame(
+        {"target_chembl_id": target_ids, "tanimoto_score": scores}
+    )
     buffer = io.BytesIO()
     df.to_parquet(buffer, engine="pyarrow")
 
@@ -224,7 +238,7 @@ def write_full_similarity_table(
     )
     logger.info(
         "Uploaded %s scores for %s to s3://%s/%s",
-        len(records), chembl_id, BUCKET_NAME, s3_key,
+        len(target_ids), chembl_id, BUCKET_NAME, s3_key,
     )
     return s3_key
 
@@ -234,13 +248,13 @@ def write_top_n_to_gold(
     source_chembl_id: str,
     top_n_rows: list[dict]
 ) -> None:
-    """Insert this source's top-N rows into gold.fact_similarity."""
+    """Insert one source's top-N rows into gold.fact_similarity."""
     for row in top_n_rows:
         cursor.execute(
             f"""
             INSERT INTO {TARGET_TABLE} (
                 source_chembl_id, target_chembl_id, tanimoto_score, rank,
-                has_duplicate_of_last_largest_score
+                has_duplicates_of_last_largest_score
             )
             VALUES (%s, %s, %s, %s, %s)
             """,
@@ -249,7 +263,7 @@ def write_top_n_to_gold(
                 row["target_chembl_id"],
                 row["tanimoto_score"],
                 row["rank"],
-                row["has_duplicate_of_last_largest_score"],
+                row["has_duplicates_of_last_largest_score"],
             ),
         )
 
@@ -259,10 +273,9 @@ def compute_and_upload_similarity(
     force_reload: bool = False,
 ) -> None:
     """
-    For each source, stream through all candidate fingerprint chunks once,
-    accumulate full (target_chembl_id, score) lists, write each source's
-    full table to its own Parquet file in S3, then derive top-10 + tie
-    flag into gold.fact_similarity.
+    Score each source against all candidates in a single memory-bounded pass,
+    write full tables to S3, and load top-10 into gold;
+    idempotent unless force_reload.
     """
     conn = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID).get_conn()
     try:
@@ -280,24 +293,21 @@ def compute_and_upload_similarity(
 
             cursor.execute(f"TRUNCATE TABLE {TARGET_TABLE}")
 
-            # decode + convert source fingerprints once, up front
+            # Decode + convert source fingerprints
             sources: dict[str, DataStructs.ExplicitBitVect] = {}
             for item in source_fingerprints:
                 fp_bytes = base64.b64decode(item["fingerprint_b64"])
                 sources[item["chembl_id"]] = bytes_to_bitvect(fp_bytes)
 
-            accumulators: dict[str, dict[str, list]] = {
-                cid: {"ids": [], "scores": []} for cid in sources
-            }
-
             hook = get_s3_hook()
             keys = hook.list_keys(
                 bucket_name=BUCKET_NAME,
-                prefix=FINGERPRINT_PREFIX
+                prefix=FINGERPRINT_PREFIX,
             ) or []
-            parquet_keys = [
+            # Sort so the shared id order is deterministic across runs.
+            parquet_keys = sorted(
                 k for k in keys if k.endswith(".parquet")
-            ]
+            )
 
             logger.info(
                 "Computing similarity for %d sources "
@@ -306,44 +316,57 @@ def compute_and_upload_similarity(
                 len(parquet_keys),
             )
 
+            # Shared candidate ids (stored once) + one float32 score
+            # column per source, both accumulated chunk by chunk.
+            id_chunks: list[np.ndarray] = []
+            score_chunks: dict[str, list[np.ndarray]] = {
+                cid: [] for cid in sources
+            }
+
             for chunk_number, key in enumerate(parquet_keys, start=1):
                 obj = hook.get_key(key=key, bucket_name=BUCKET_NAME)
                 buffer = io.BytesIO(obj.get()["Body"].read())
                 df = pd.read_parquet(
                     buffer,
-                    columns=["chembl_id", "fingerprint_bytes"]
+                    columns=["chembl_id", "fingerprint_bytes"],
                 )
 
-                candidate_ids = df["chembl_id"].to_numpy()
+                id_chunks.append(df["chembl_id"].to_numpy())
                 candidate_fps = [
                     bytes_to_bitvect(fp) for fp in df["fingerprint_bytes"]
                 ]
 
                 for source_id, source_fp in sources.items():
-                    scores = np.array(
+                    scores = np.asarray(
                         DataStructs.BulkTanimotoSimilarity(
                             source_fp, candidate_fps
-                        )
+                        ),
+                        dtype=np.float32,
                     )
-
-                    mask = candidate_ids != source_id
-                    accumulators[source_id]["ids"].append(candidate_ids[mask])
-                    accumulators[source_id]["scores"].append(scores[mask])
+                    score_chunks[source_id].append(scores)
 
                 logger.info(
                     "Processed chunk %d/%d (%s)",
-                    chunk_number, len(parquet_keys), key
+                    chunk_number, len(parquet_keys), key,
                 )
 
+            global_ids = np.concatenate(id_chunks)
+            del id_chunks
+
             total_row_count = 0
-            for source_id, chunks in accumulators.items():
-                final_ids = np.concatenate(chunks["ids"])
-                final_scores = np.concatenate(chunks["scores"])
-                records = list(zip(final_ids.tolist(), final_scores.tolist()))
+            # pop() frees each source's score chunks as soon as it's written.
+            for source_id in list(sources.keys()):
+                final_scores = np.concatenate(score_chunks.pop(source_id))
 
-                write_full_similarity_table(source_id, records)
+                keep = global_ids != source_id  # drop self-match
+                target_ids = global_ids[keep]
+                target_scores = final_scores[keep]
 
-                top_n_rows = select_top_n(records)
+                write_full_similarity_table(
+                    source_id, target_ids, target_scores
+                )
+
+                top_n_rows = select_top_n(target_ids, target_scores)
                 write_top_n_to_gold(cursor, source_id, top_n_rows)
                 total_row_count += len(top_n_rows)
 
@@ -353,10 +376,8 @@ def compute_and_upload_similarity(
         conn.close()
 
     logger.info(
-        (
-            "gold.fact_similarity build complete: %d sources processed, "
-            "%d total rows written"
-        ),
+        "gold.fact_similarity build complete: "
+        "%d sources processed, %d total rows written",
         len(sources),
         total_row_count,
     )

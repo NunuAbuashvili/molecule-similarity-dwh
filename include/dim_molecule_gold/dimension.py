@@ -1,3 +1,5 @@
+"""Build gold.dim_molecule with properties of fact-referenced molecules."""
+
 import logging
 
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -15,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_last_built_version(cursor) -> str | None:
+    """
+    Return the ChEMBL version gold.dim_molecule was last built from, or None.
+    """
     cursor.execute(
         "SELECT version FROM meta.load_log WHERE table_name = %s",
         (TARGET_TABLE,),
@@ -40,6 +45,10 @@ def record_build(cursor, version: str, row_count: int) -> None:
 
 
 def build_dim_molecule(force_reload: bool = False) -> None:
+    """
+    Rebuild gold.dim_molecule with properties of molecules referenced
+    by the fact table; idempotent unless force_reload.
+    """
     conn = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID).get_conn()
     try:
         with conn.cursor() as cursor:

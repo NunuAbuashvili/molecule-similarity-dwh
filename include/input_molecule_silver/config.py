@@ -1,3 +1,5 @@
+"""Configuration for matching input molecules against ChEMBL in silver."""
+
 POSTGRES_CONN_ID = "mol_sim_dwh"
 
 SOURCE_TABLE = "bronze.input_molecules"

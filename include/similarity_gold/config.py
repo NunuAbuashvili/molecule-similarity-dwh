@@ -1,3 +1,7 @@
+"""
+Configuration for the Tanimoto similarity computation and gold.fact_similarity.
+"""
+
 import os
 
 from include.fingerprint_silver.config import (  # noqa: F401

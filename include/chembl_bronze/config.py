@@ -1,3 +1,5 @@
+"""Configuration for ingesting ChEMBL SQLite tables into the bronze layer."""
+
 CHEMBL_VERSION = "37"
 POSTGRES_CONN_ID = "mol_sim_dwh"
 BATCH_SIZE = 50_000

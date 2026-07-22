@@ -1,4 +1,5 @@
 """Configuration for ingesting S3 input CSVs into bronze."""
+
 import os
 
 AWS_CONN_ID = "aws_s3"

@@ -35,19 +35,14 @@ _generator = rdFingerprintGenerator.GetMorganGenerator(
 
 
 def get_s3_hook() -> S3Hook:
+    """Return an S3Hook bound to the configured AWS connection."""
     return S3Hook(aws_conn_id=AWS_CONN_ID)
 
 
 def compute_fingerprint(smiles: str) -> bytes | None:
     """
-    Compute a packed-byte Morgan fingerprint for a SMILES string.
-
-    Args:
-        smiles: A validated SMILES string.
-
-    Returns:
-        A 256-byte packed bit array (2048 bits), or None if RDKit fails to
-        parse or fingerprint this molecule.
+    Compute a 256-byte packed Morgan fingerprint for a SMILES string,
+    or None on failure.
     """
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -76,15 +71,7 @@ def fetch_chunk(
     chunk_size: int
 ) -> list[tuple]:
     """
-    Fetch one keyset-paginated chunk of validated molecules.
-
-    Args:
-        cursor: An open database cursor.
-        last_molregno: The highest molregno already processed.
-        chunk_size: Maximum number of rows to fetch.
-
-    Returns:
-        A list of (molregno, chembl_id, canonical_smiles) tuples.
+    Fetch one keyset-paginated chunk of validated molecules from silver.
     """
     cursor.execute(
         f"""
@@ -106,14 +93,8 @@ def fetch_chunk(
 
 def build_fingerprint_batch(rows: list[tuple]) -> tuple[list[tuple], int]:
     """
-    Compute fingerprints for a chunk of molecules.
-
-    Args:
-        rows: (molregno, chembl_id, canonical_smiles) tuples.
-
-    Returns:
-        A tuple of (records, failed_count) where records are
-        (chembl_id, fingerprint_bytes) pairs for successful computations.
+    Compute fingerprints for a chunk, returning (chembl_id, bytes) records
+    and a failed count.
     """
     records = []
     failed_count = 0
@@ -139,15 +120,8 @@ def upload_batch_to_s3(
     chunk_number: int
 ) -> str | None:
     """
-    Write a batch of fingerprint records to Parquet and upload to S3.
-
-    Args:
-        records: (chembl_id, fingerprint_bytes) pairs.
-        chunk_number: Sequential chunk index, used to build a unique S3 key.
-
-    Returns:
-        The S3 key the file was uploaded to, or None if there were no
-        records to upload.
+    Write a batch of fingerprint records to Parquet and
+    upload to S3; return the key or None.
     """
     if not records:
         logger.warning(
@@ -177,8 +151,7 @@ def upload_batch_to_s3(
 
 def clear_existing_output(bucket: str, prefix: str) -> None:
     """
-    Delete any existing Parquet files under the output prefix
-    (used before a rebuild).
+    Delete any existing Parquet files under the output prefix before a rebuild.
     """
     hook = get_s3_hook()
     existing_keys = hook.list_keys(bucket_name=bucket, prefix=prefix) or []
@@ -192,14 +165,7 @@ def clear_existing_output(bucket: str, prefix: str) -> None:
 
 def get_last_built_version(cursor) -> str | None:
     """
-    Look up which ChEMBL version silver.molecule was last built from.
-
-    Args:
-        cursor: An open database cursor.
-
-    Returns:
-        The recorded version string, or None if silver.molecule has never
-        been built.
+    Return the ChEMBL version fingerprints were last built from, or None.
     """
     cursor.execute(
         "SELECT version "
@@ -217,12 +183,7 @@ def record_build(
     row_count: int
 ) -> None:
     """
-    Upsert the build metadata row for fingerprint output.
-
-    Args:
-        cursor: An open database cursor.
-        version: The ChEMBL version this build was sourced from.
-        row_count: Total number of valid rows loaded.
+    Upsert the build metadata row for the fingerprint output.
     """
     cursor.execute(
         """
@@ -240,14 +201,8 @@ def record_build(
 
 def run_fingerprint_computation(force_reload: bool = False) -> None:
     """
-    Compute Morgan fingerprints for all validated molecules and upload as
-    Parquet to S3, one file per chunk.
-
-    Skips if fingerprints were already built from the current ChEMBL version,
-    unless force_reload is True.
-
-    Args:
-        force_reload: If True, rebuild even if already up to date.
+    Compute Morgan fingerprints for all validated molecules and
+    upload them as Parquet chunks to S3; idempotent unless force_reload.
     """
     conn = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID).get_conn()
     last_molregno = 0
@@ -280,6 +235,7 @@ def run_fingerprint_computation(force_reload: bool = False) -> None:
                     break
 
                 valid_rows, rejected_count = build_fingerprint_batch(rows)
+                upload_batch_to_s3(valid_rows, chunk_number)
                 conn.commit()
 
                 total_valid += len(valid_rows)

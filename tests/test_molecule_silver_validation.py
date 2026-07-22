@@ -122,7 +122,7 @@ class TestRecordBuild:
         validation.record_build(cursor, "chembl_35", 100)
 
         sql, params = cursor.execute.call_args[0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert "ON CONFLICT (table_name, version)" in sql
         assert params == ("silver.molecule", "chembl_35", 100)
 
@@ -171,7 +171,7 @@ class TestRunValidation:
         validation.run_validation(force_reload=False)
 
         sql, params = cursor.execute.call_args_list[-1][0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         # 2 valid rows total (CCO + benzene); the malformed SMILES was rejected
         assert params == ("silver.molecule", "chembl_35", 2)
 

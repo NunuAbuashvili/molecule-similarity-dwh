@@ -161,7 +161,7 @@ class TestRecordBuild:
         fingerprints.record_build(cursor, "chembl_35", 100)
 
         sql, params = cursor.execute.call_args[0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert "ON CONFLICT (table_name, version)" in sql
         assert params == ("silver.fingerprints", "chembl_35", 100)
 
@@ -199,7 +199,7 @@ class TestRunFingerprintComputation:
 
         assert mock_s3_hook.load_bytes.call_count == 2
         sql, params = cursor.execute.call_args_list[-1][0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert params == ("silver.fingerprints", "chembl_35", 2)
 
     def test_closes_connection_even_on_failure(

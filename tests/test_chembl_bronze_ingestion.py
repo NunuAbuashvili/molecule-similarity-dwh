@@ -156,14 +156,24 @@ class TestGetLastLoadedVersion:
 
 class TestRecordLoad:
     def test_executes_upsert_with_correct_params(self, pg_conn):
-        record_load(pg_conn, "bronze.molecule_dictionary", "chembl_35", 12345)
+        record_load(
+            pg_conn,
+            "bronze.molecule_dictionary",
+            "chembl_35",
+            12345
+        )
 
         cursor = pg_conn.cursor.return_value.__enter__.return_value
         sql, params = cursor.execute.call_args[0]
-        assert "INSERT " + "INTO meta.load_log" in sql
+        assert "INSERT INTO meta.load_log" in sql
         assert "ON CONFLICT (table_name, version)" in sql
         assert params == ("bronze.molecule_dictionary", "chembl_35", 12345)
 
     def test_commits(self, pg_conn):
-        record_load(pg_conn, "bronze.molecule_dictionary", "chembl_35", 12345)
+        record_load(
+            pg_conn,
+            "bronze.molecule_dictionary",
+            "chembl_35",
+            12345
+        )
         pg_conn.commit.assert_called_once()

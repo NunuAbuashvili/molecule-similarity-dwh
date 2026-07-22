@@ -1,3 +1,5 @@
+"""MS Teams failure notifications via on_failure_callback."""
+
 import logging
 import traceback
 from datetime import datetime, timezone
@@ -11,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 def post_to_teams(webhook_url: str, payload: dict) -> None:
+    """
+    POST a payload to the Teams webhook, degrading gracefully
+    if it's unset or the request fails.
+    """
     if not webhook_url:
         logger.warning(
             "Teams webhook URL not configured, skipping notification."
@@ -37,6 +43,9 @@ def post_to_teams(webhook_url: str, payload: dict) -> None:
 
 
 def build_failure_payload(context: dict) -> dict:
+    """
+    Build a Teams Adaptive Card payload from an Airflow failure context.
+    """
     ti = context["task_instance"]
     exception = context.get("exception")
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -96,5 +105,8 @@ def build_failure_payload(context: dict) -> dict:
 
 
 def notify_task_failure(context: dict) -> None:
+    """
+    on_failure_callback that builds and sends the Teams failure notification.
+    """
     payload = build_failure_payload(context)
     post_to_teams(TEAMS_WEBHOOK_URL, payload)

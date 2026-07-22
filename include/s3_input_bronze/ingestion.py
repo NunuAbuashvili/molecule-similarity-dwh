@@ -1,3 +1,5 @@
+"""Ingest input-molecule CSVs from S3 into bronze.input_molecules."""
+
 import csv
 import logging
 import os
@@ -21,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_s3_hook() -> S3Hook:
+    """Return an S3Hook bound to the configured AWS connection."""
     return S3Hook(aws_conn_id=AWS_CONN_ID)
 
 
@@ -29,7 +32,7 @@ def list_matching_keys(
     prefix: str = INPUT_PREFIX,
 ) -> list[str]:
     """
-    List S3 keys under `prefix` that match KEY_PATTERN.
+    List S3 keys under the prefix that match the input-file pattern.
     """
     hook = get_s3_hook()
     try:
@@ -56,7 +59,9 @@ def fetch_csv_from_s3(
     dest_dir: str,
     bucket: str = BUCKET_NAME
 ) -> str:
-    """Download one CSV file from S3 to local disk."""
+    """
+    Download one CSV from S3 to local disk and return its path.
+    """
     os.makedirs(dest_dir, exist_ok=True)
     hook = get_s3_hook()
     local_path = os.path.join(dest_dir, os.path.basename(key))
@@ -82,7 +87,7 @@ def fetch_csv_from_s3(
 
 def resolve_columns(header: list[str]) -> list[str]:
     """
-    Map source column names to canonical bronze names and validate.
+    Map source header names to canonical bronze columns and validate them.
     """
     resolved = [
         COLUMN_ALIASES.get(col.strip(), col.strip()) for col in header
@@ -96,6 +101,7 @@ def resolve_columns(header: list[str]) -> list[str]:
 
 
 def read_csv_header(csv_path: str) -> list[str]:
+    """Read and return the header row of a CSV file."""
     try:
         with open(csv_path, newline="", encoding="utf-8") as f:
             return next(csv.reader(f))
@@ -112,7 +118,10 @@ def load_csv_to_postgres(
     table_name: str,
     source_key: str
 ) -> int:
-    """Bulk-load CSV into Postgres."""
+    """
+    Load a CSV into a temp staging table, then insert into the target
+    with source-file provenance; return the row count.
+    """
     target_columns = resolve_columns(read_csv_header(csv_path))
     col_list = ", ".join(target_columns)
     col_defs = ", ".join(f"{col} text" for col in target_columns)
@@ -152,7 +161,9 @@ def load_csv_to_postgres(
 
 
 def record_input_load(key: str, row_count: int) -> None:
-    """Upsert metadata load logs."""
+    """
+    Upsert per-file load metadata (keyed by S3 key) into meta.load_log.
+    """
     conn = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID).get_conn()
     try:
         with conn.cursor() as cur:

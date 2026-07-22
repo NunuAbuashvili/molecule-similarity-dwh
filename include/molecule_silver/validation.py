@@ -22,14 +22,7 @@ logger = logging.getLogger(__name__)
 
 def is_valid_smiles(smiles: str) -> bool:
     """
-    Check whether RDKit can parse a SMILES string into a molecule.
-
-    Args:
-        smiles: A SMILES string.
-
-    Returns:
-        True if the string parses into a valid RDKit molecule,
-        False otherwise.
+    Return whether RDKit can parse the SMILES string into a molecule.
     """
     return Chem.MolFromSmiles(smiles) is not None
 
@@ -40,19 +33,8 @@ def fetch_chunk(
     chunk_size: int
 ) -> list[tuple]:
     """
-    Fetch one keyset-paginated chunk of molecules from bronze.
-
-    Joins compound structures with the molecule dictionary and returns rows
-    with a non-null, non-empty canonical SMILES, ordered by molregno.
-
-    Args:
-        cursor: An open database cursor.
-        last_molregno: The highest molregno already processed; only rows
-            with a greater molregno are returned.
-        chunk_size: Maximum number of rows to fetch.
-
-    Returns:
-        A list of (molregno, chembl_id, canonical_smiles) tuples.
+    Fetch one keyset-paginated chunk of molecules (with non-empty SMILES)
+    from bronze.
     """
     cursor.execute(
         f"""
@@ -78,12 +60,6 @@ def fetch_chunk(
 def validate_chunk(rows: list[tuple]) -> tuple[list[tuple], int]:
     """
     Split a chunk into rows with parseable SMILES and a rejected count.
-
-    Args:
-        rows: (molregno, chembl_id, canonical_smiles) tuples to validate.
-
-    Returns:
-        A tuple of (valid_rows, rejected_count).
     """
     valid_rows = []
     rejected_count = 0
@@ -108,15 +84,7 @@ def load_chunk_to_silver(
     target_table: str = TARGET_TABLE
 ) -> int:
     """
-    Bulk-load validated rows into the silver table.
-
-    Args:
-        cursor: An open database cursor.
-        rows: (molregno, chembl_id, canonical_smiles) tuples to insert.
-        target_table: Fully-qualified destination table name.
-
-    Returns:
-        Number of rows loaded.
+    Bulk-load validated rows into silver.molecule via COPY; return rows loaded.
     """
     if not rows:
         logger.debug(
@@ -146,14 +114,7 @@ def load_chunk_to_silver(
 
 def get_last_built_version(cursor) -> str | None:
     """
-    Look up which ChEMBL version silver.molecule was last built from.
-
-    Args:
-        cursor: An open database cursor.
-
-    Returns:
-        The recorded version string, or None if silver.molecule has never
-        been built.
+    Return the ChEMBL version silver.molecule was last built from, or None.
     """
     cursor.execute(
         "SELECT version "
@@ -170,14 +131,7 @@ def record_build(
     version: str,
     row_count: int
 ) -> None:
-    """
-    Upsert the build metadata row for silver.molecule.
-
-    Args:
-        cursor: An open database cursor.
-        version: The ChEMBL version this build was sourced from.
-        row_count: Total number of valid rows loaded.
-    """
+    """Upsert the build metadata row for silver.molecule."""
     cursor.execute(
         """
         INSERT INTO meta.load_log (table_name, version, row_count, loaded_at)
@@ -192,16 +146,8 @@ def record_build(
 
 def run_validation(force_reload: bool = False) -> None:
     """
-    Build silver.molecule from bronze ChEMBL tables.
-
-    Skips the rebuild if silver.molecule was already built from the current
-    ChEMBL version, unless force_reload is True. Otherwise, truncates the
-    target table, then pages through bronze in keyset-paginated chunks,
-    validating each row's SMILES with RDKit and loading the valid subset.
-    Idempotent: safe to re-run in full from scratch.
-
-    Args:
-        force_reload: If True, rebuild even if already up to date.
+    Rebuild silver.molecule from bronze in validated, keyset-paginated chunks;
+    idempotent unless force_reload.
     """
     conn = PostgresHook(postgres_conn_id=POSTGRES_CONN_ID).get_conn()
     last_molregno = 0

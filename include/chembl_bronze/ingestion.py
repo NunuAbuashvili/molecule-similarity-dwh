@@ -15,7 +15,8 @@ def stream_table_to_postgres(
     batch_size: int = BATCH_SIZE,
 ) -> int:
     """
-    Bulk-copy one ChEMBL SQLite table into Postgres via COPY.
+    Bulk-copy one ChEMBL SQLite table into Postgres in batches via COPY,
+    returning the row count.
     """
     col_list = ", ".join(columns)
     sqlite_cursor = sqlite_conn.cursor()
@@ -50,7 +51,8 @@ def get_last_loaded_version(
     table_name: str
 ) -> str | None:
     """
-    Return the ChEMBL version last recorded as loaded for this table, or None.
+    Return the ChEMBL version last recorded for this table
+    in meta.load_log, or None.
     """
     with pg_conn.cursor() as cursor:
         cursor.execute(
@@ -67,7 +69,10 @@ def record_load(
     version: str,
     row_count: int
 ) -> None:
-    """Upsert the load metadata row for this table."""
+    """
+    Upsert this table's load metadata (version, row count, timestamp)
+    into meta.load_log.
+    """
     with pg_conn.cursor() as cursor:
         cursor.execute(
             """

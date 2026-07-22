@@ -48,46 +48,48 @@ CREATE OR REPLACE VIEW gold.similarity_pivot_10_sources AS
     GROUP BY target_chembl_id;
 
 
--- 4. Ranking chain: for each source molecule, its most similar (rank 1) and
---    second most similar (rank 2) target molecule, both anchored to the
---    source.
-CREATE OR REPLACE VIEW gold.similarity_ranking_chain AS
-    WITH top_two AS (
-        SELECT source_chembl_id, target_chembl_id, rank
-        FROM gold.fact_similarity
-        WHERE rank <= 2
-    )
-    SELECT
-        t1.source_chembl_id,
-        t1.target_chembl_id AS most_similar_chembl_id,
-        t2.target_chembl_id AS second_most_similar_chembl_id
-    FROM top_two t1
-    JOIN top_two t2 ON t2.source_chembl_id = t1.source_chembl_id AND t2.rank = 2
-    WHERE t1.rank = 1;
+-- 4. Neighbor chain: Displays all target rank rows for each source molecule,
+--    along with the next most similar target molecule (via LEAD) and the
+--    source's 2nd most similar target molecule across all rows.
+CREATE OR REPLACE VIEW gold.similarity_neighbor_chain AS
+SELECT
+    source_chembl_id,
+    target_chembl_id,
+    tanimoto_score,
+    LEAD(target_chembl_id) OVER (
+        PARTITION BY source_chembl_id ORDER BY rank
+    ) AS next_most_similar_target_chembl_id,
+    MAX(target_chembl_id) FILTER (WHERE rank = 2) OVER (
+        PARTITION BY source_chembl_id
+    ) AS second_most_similar_target_chembl_id
+FROM gold.fact_similarity;
 
 
--- 5. Average similarity score grouped by: (i) source molecule, (ii) source's
---    aromatic_rings + heavy_atoms, (iii) source's heavy_atoms, (iv) whole
---    dataset -- one GROUPING SETS query, no UNION. The grand-total row (iv)
---    is labeled 'TOTAL' in source_chembl_id; it's the only row where all
---    three grouping columns are rolled up simultaneously.
+-- 5. Average similarity score grouped by: (i) source molecule,
+--    (ii) source's aromatic_rings + heavy_atoms, (iii) source's heavy_atoms,
+--    and (iv) whole dataset using GROUPING SETS.
+--    Individual GROUPING() checks catch rolled-up NULLs across subgroups
+--    and the grand-total row, replacing them with 'TOTAL'.
 CREATE OR REPLACE VIEW gold.average_similarity_grouped AS
-    SELECT
-        CASE
-            WHEN GROUPING(fs.source_chembl_id) = 1
-             AND GROUPING(dm.aromatic_rings) = 1
-             AND GROUPING(dm.heavy_atoms) = 1
-            THEN 'TOTAL'
-            ELSE fs.source_chembl_id
-        END AS source_chembl_id,
-        dm.aromatic_rings,
-        dm.heavy_atoms,
-        ROUND(AVG(fs.tanimoto_score)::numeric, 4) AS average_tanimoto_score
-    FROM gold.fact_similarity fs
-    JOIN gold.dim_molecule dm ON dm.chembl_id = fs.source_chembl_id
-    GROUP BY GROUPING SETS (
-        (fs.source_chembl_id),
-        (dm.aromatic_rings, dm.heavy_atoms),
-        (dm.heavy_atoms),
-        ()
-    );
+SELECT
+    CASE
+        WHEN GROUPING(fs.source_chembl_id) = 1 THEN 'TOTAL'
+        ELSE fs.source_chembl_id
+    END AS source_chembl_id,
+    CASE
+        WHEN GROUPING(dm.aromatic_rings) = 1 THEN 'TOTAL'
+        ELSE dm.aromatic_rings::text
+    END AS aromatic_rings,
+    CASE
+        WHEN GROUPING(dm.heavy_atoms) = 1 THEN 'TOTAL'
+        ELSE dm.heavy_atoms::text
+    END AS heavy_atoms,
+    ROUND(AVG(fs.tanimoto_score)::numeric, 4) AS average_tanimoto_score
+FROM gold.fact_similarity fs
+JOIN gold.dim_molecule dm ON dm.chembl_id = fs.source_chembl_id
+GROUP BY GROUPING SETS (
+    (fs.source_chembl_id),
+    (dm.aromatic_rings, dm.heavy_atoms),
+    (dm.heavy_atoms),
+    ()
+);
