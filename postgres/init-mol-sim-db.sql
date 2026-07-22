@@ -21,6 +21,19 @@ DROP TABLE IF EXISTS bronze.molecule_dictionary;
 DROP TABLE IF EXISTS bronze.compound_properties;
 DROP TABLE IF EXISTS bronze.compound_structures;
 DROP TABLE IF EXISTS bronze.input_molecules;
+DROP TABLE IF EXISTS silver.molecule;
+DROP TABLE IF EXISTS silver.input_molecule;
+DROP TABLE IF EXISTS gold.fact_similarity;
+DROP TABLE IF EXISTS gold.dim_molecule;
+
+
+CREATE TABLE IF NOT EXISTS meta.load_log (
+    table_name     TEXT NOT NULL,
+    version        TEXT NOT NULL,
+    loaded_at      TIMESTAMPTZ NOT NULL,
+    row_count      BIGINT NOT NULL,
+    PRIMARY KEY (table_name, version)
+);
 
 
 CREATE TABLE bronze.chembl_id_lookup (
@@ -101,15 +114,6 @@ CREATE TABLE bronze.compound_structures (
 );
 
 
-CREATE TABLE IF NOT EXISTS meta.load_log (
-    table_name     TEXT NOT NULL,
-    version        TEXT NOT NULL,
-    loaded_at      TIMESTAMPTZ NOT NULL,
-    row_count      BIGINT NOT NULL,
-    PRIMARY KEY (table_name, version)
-);
-
-
 CREATE TABLE bronze.input_molecules (
     id                BIGSERIAL PRIMARY KEY,
     compound_id       TEXT,
@@ -122,3 +126,73 @@ CREATE TABLE bronze.input_molecules (
     _source_file      TEXT NOT NULL,
     _ingested_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+CREATE TABLE silver.molecule (
+    molregno          BIGINT PRIMARY KEY,
+    chembl_id         VARCHAR(20) NOT NULL UNIQUE,
+    canonical_smiles  TEXT NOT NULL,
+    _validated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE TABLE silver.input_molecule (
+    compound_id         TEXT NOT NULL,
+    compound_name       TEXT NOT NULL,
+    molecular_weight    NUMERIC,
+    logp                NUMERIC,
+    ic50_nm             NUMERIC,
+    assay_date          DATE,
+    lab_id              TEXT,
+    chembl_id           VARCHAR(20),
+    _source_file        TEXT NOT NULL,
+    _validated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE TABLE gold.fact_similarity (
+    source_chembl_id    VARCHAR(20) NOT NULL,
+    target_chembl_id    VARCHAR(20) NOT NULL,
+    tanimoto_score      NUMERIC NOT NULL,
+    rank                INT NOT NULL,
+    has_duplicates_of_last_largest_score BOOLEAN NOT NULL DEFAULT FALSE,
+    _computed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (source_chembl_id, target_chembl_id)
+);
+
+CREATE INDEX idx_fact_sim_target ON gold.fact_similarity(target_chembl_id);
+
+
+CREATE TABLE gold.dim_molecule (
+    chembl_id         TEXT PRIMARY KEY,
+    molecule_type     TEXT,
+    mw_freebase       NUMERIC,
+    alogp             NUMERIC,
+    psa               NUMERIC,
+    cx_logp           NUMERIC,
+    molecular_species TEXT,
+    full_mwt          NUMERIC,
+    aromatic_rings    INTEGER,
+    heavy_atoms       INTEGER,
+    _populated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+CREATE OR REPLACE FUNCTION silver.try_cast_numeric(p_text TEXT)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN p_text::NUMERIC;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION silver.try_cast_date(p_text TEXT)
+RETURNS DATE AS $$
+BEGIN
+    RETURN p_text::DATE;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;

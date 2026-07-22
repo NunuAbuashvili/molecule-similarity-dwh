@@ -17,3 +17,6 @@ psycopg2-binary
 # Airflow providers (not included in the base image by default)
 apache-airflow-providers-amazon
 apache-airflow-providers-postgres
+
+# Teams notification
+requests
